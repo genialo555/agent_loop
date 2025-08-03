@@ -1,0 +1,329 @@
+# Docker Compose pour environnement de développement Agent Loop
+# Inclut: FastAPI app, Ollama, Prometheus, Grafana
+
+services:
+  # Application FastAPI principale
+  fastapi-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      - /app/__pycache__
+      # Prometheus multiprocess directory
+      - prometheus_multiproc:/tmp/prometheus_multiproc
+    depends_on:
+      - prometheus
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Service Ollama pour LLM local
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Enable GPU access if available
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Fallback for systems without GPU
+    profiles:
+      - gpu
+
+  # Version Ollama sans GPU pour développement
+  ollama-cpu:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles:
+      - cpu
+
+  # Prometheus pour métriques
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana pour visualisation
+  grafana:
+    image: grafana/grafana:10.2.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - agent-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus Pushgateway for training metrics
+  pushgateway:
+    image: prom/pushgateway:v1.7.0
+    ports:
+      - "9091:9091"
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9091/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service d'initialisation pour télécharger le modèle Ollama
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama-cpu
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - agent-network
+    command: >
+      sh -c "
+        echo 'Waiting for Ollama to be ready...' &&
+        until curl -f http://ollama-cpu:11434/api/version; do
+          echo 'Ollama not ready, waiting...'
+          sleep 5
+        done &&
+        echo 'Ollama is ready, downloading model...' &&
+        ollama pull gemma:3n-e2b &&
+        echo 'Model downloaded successfully!'
+      "
+    profiles:
+      - init
+    restart: "no"
+
+  # === SERVICE DE FINE-TUNING GPU ===
+  # Service principal pour l'entraînement des modèles avec GPU
+  training-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: training
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    environment:
+      - ENVIRONMENT=training
+      - CUDA_VISIBLE_DEVICES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_HOME=/app/models/.cache/huggingface
+      - TRANSFORMERS_CACHE=/app/models/.cache/transformers
+      - TORCH_HOME=/app/models/.cache/torch
+      - WANDB_PROJECT=agent-loop-finetuning
+      - WANDB_MODE=offline
+    volumes:
+      # Volume strategy for large models and datasets
+      - ./datasets:/app/datasets:ro                    # Read-only datasets
+      - training_models:/app/models                     # Persistent model storage (~5GB+)
+      - training_checkpoints:/app/outputs               # Training outputs and checkpoints
+      - training_logs:/app/logs                        # Training logs
+      - training_cache:/app/models/.cache              # HuggingFace cache
+      # Development mounts (commented for production)
+      # - ./training:/app/training                      # Hot reload training scripts
+    networks:
+      - agent-network
+    # GPU resource allocation
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Health monitoring for long-running training
+    healthcheck:
+      test: ["CMD", "python", "-c", "import torch; exit(0 if torch.cuda.is_available() else 1)"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 120s
+    profiles:
+      - training
+    restart: "no"  # Training jobs shouldn't auto-restart
+
+  # Service de training interactif pour développement
+  training-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: training
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    environment:
+      - ENVIRONMENT=development
+      - CUDA_VISIBLE_DEVICES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_HOME=/app/models/.cache/huggingface
+      - TRANSFORMERS_CACHE=/app/models/.cache/transformers
+      - TORCH_HOME=/app/models/.cache/torch
+      - JUPYTER_ENABLE_LAB=yes
+    ports:
+      - "8888:8888"  # Jupyter for interactive development
+      - "6006:6006"  # TensorBoard
+    volumes:
+      # Development mounts for hot reload
+      - .:/app
+      - /app/__pycache__
+      - training_models:/app/models
+      - training_checkpoints:/app/outputs
+      - training_logs:/app/logs
+      - training_cache:/app/models/.cache
+    networks:
+      - agent-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Interactive development - keep running
+    command: >
+      sh -c "
+        pip install jupyter jupyterlab &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --notebook-dir=/app
+      "
+    profiles:
+      - training-dev
+    restart: unless-stopped
+
+  # Service de monitoring spécialisé pour training
+  training-monitor:
+    image: wandb/local:latest
+    ports:
+      - "8080:8080"  # W&B Local UI
+    volumes:
+      - wandb_data:/vol
+    networks:
+      - agent-network
+    environment:
+      - WANDB_BASE_URL=http://localhost:8080
+    profiles:
+      - training
+      - training-dev
+    restart: unless-stopped
+
+# Volumes persistants
+volumes:
+  # Production volumes
+  ollama_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  prometheus_multiproc:
+    driver: local
+  
+  # Training-specific volumes - optimized for large ML workloads
+  training_models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./models  # Local binding for development, use NFS/EBS in production
+  training_checkpoints:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./model_checkpoints
+  training_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind  
+      device: ./logs
+  training_cache:
+    driver: local  # Persistent HuggingFace cache (~2GB typical)
+  wandb_data:
+    driver: local  # W&B experiment tracking data
+
+# Réseau pour la communication inter-services
+networks:
+  agent-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

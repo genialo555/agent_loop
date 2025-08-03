@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # New modular FastAPI application
+  fastapi-new:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"  # Different port to avoid conflict with existing app
+    environment:
+      - ENVIRONMENT=development
+      - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+      - /tmp/agent_screenshots:/tmp/agent_screenshots
+    command: >
+      uvicorn inference.app:app 
+      --host 0.0.0.0 
+      --port 8000 
+      --reload 
+      --log-level info
+    depends_on:
+      - ollama
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Original FastAPI application (for comparison)
+  fastapi-original:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"  # Original port
+    environment:
+      - ENVIRONMENT=development
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+      - /tmp/agent_screenshots:/tmp/agent_screenshots
+    command: >
+      uvicorn inference.api:app 
+      --host 0.0.0.0 
+      --port 8000 
+      --reload 
+      --log-level info
+    depends_on:
+      - ollama
+    networks:
+      - agent-network
+
+  # Ollama service for LLM inference
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./scripts:/scripts
+    environment:
+      - OLLAMA_KEEP_ALIVE=5m
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - agent-network
+
+  # Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - agent-network
+
+  # Test runner service
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - agent-network
+    command: >
+      python scripts/test_new_architecture.py --url http://fastapi-new:8000
+    depends_on:
+      - fastapi-new
+    profiles:
+      - testing
+
+volumes:
+  ollama_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  agent-network:
+    driver: bridge

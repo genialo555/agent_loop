@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "Alertes leboncoin v3.4",
+  "version": "3.4",
+  "description": "Lancez automatiquement des recherches sur leboncoin.fr et recevez des alertes quand une nouvelle annonce est publiée",
+  "permissions": [
+    "alarms",
+    "notifications",
+    "idle",
+    "storage",
+    "activeTab",
+    "scripting",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://www.leboncoin.fr/*",
+    "*://www.facebook.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.facebook.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_icon": {
+      "16": "/png/icon-leboncoin-16.png",
+      "32": "/png/icon-leboncoin-32.png",
+      "48": "/png/icon-leboncoin-48.png"
+    },
+    "default_popup": "/html/popup.html"
+  },
+  "icons": {
+    "128": "/png/icon-leboncoin-128.png",
+    "16": "/png/icon-leboncoin-16.png",
+    "32": "/png/icon-leboncoin-32.png",
+    "48": "/png/icon-leboncoin-48.png"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAms9b6VheEiplAcB3VtQMbNdnaHnO8o4Nyvvc6wQv7TqXLlnWhDHqkxSBnV/TKoNIrGaDgu0/Eo67AjMATM+tOCRCRhxTt+QhIlibiMDZ48Ow25D1yf0S1HxYeXePIl74lR4XJ80QeqJFQbWVl+n6SCJ+GR72+ZCSOTqrPKStijDoo6P3b2OzBMU3RZYIORfemQB5PYXdylxlD2vuxPqdNfxvTj0YnH//A+eOn80Y0OYRxhezTT70UjQQAw8e/nWOAYYysCvM5nr4R4xUx4Ap+63TiZ6R3oUThbArENtpwgMg0re+TRsSnMq+HCsrIvyQXYj1RP2JYuSvI7YGQkDFvwIDAQAB"
+}

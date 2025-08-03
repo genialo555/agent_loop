@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Origin", "operation": "set", "value": "https://www.facebook.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "https://www.facebook.com/*",
+      "resourceTypes": ["xmlhttprequest"]
+    }
+  }
+]

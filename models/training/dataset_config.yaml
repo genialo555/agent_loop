@@ -1,0 +1,103 @@
+# Dataset Configuration for Training Pipeline
+# Maps dataset names to local paths and HuggingFace identifiers
+
+datasets:
+  agent_instruct:
+    local_path: "/media/jerem/jeux&travail/datasets/agent_instruct/data"
+    hf_name: "agent-instruct/agent-instruct"
+    file_type: "parquet"
+    description: "Agent instruction following dataset with 20 parquet files"
+    size: "2.3GB"
+    text_column: "conversations"  # or "text" depending on the format
+    
+  apibench:
+    local_path: "/media/jerem/jeux&travail/datasets/apibench"
+    hf_name: "gorilla-llm/APIBench"
+    file_type: "json"
+    training_files:
+      - "huggingface_train.json"
+      - "tensorflow_train.json"
+      - "torchhub_train.json"
+    description: "API usage benchmark dataset"
+    size: "42MB"
+    text_column: "text"
+    
+  browsergym:
+    local_path: "/media/jerem/jeux&travail/datasets/browsergym"
+    hf_name: "ServiceNow/browsergym"
+    file_type: "unknown"
+    description: "Browser automation dataset"
+    size: "3.2MB"
+    
+  camel_agent:
+    local_path: "/media/jerem/jeux&travail/datasets/camel_agent"
+    hf_name: "camel-ai/ai_society"
+    file_type: "mixed"
+    subdirs:
+      - "ai_society"
+      - "biology"
+      - "code"
+      - "math"
+      - "physics"
+    description: "CAMEL multi-domain agent conversations"
+    size: "1.3GB"
+    
+  workarena:
+    local_path: "/media/jerem/jeux&travail/datasets/workarena"
+    hf_name: "ServiceNow/workarena"
+    file_type: "unknown"
+    description: "Work automation tasks dataset"
+    size: "149MB"
+    
+  react:
+    local_path: "/media/jerem/jeux&travail/datasets/react"
+    hf_name: "react-agent/react"
+    file_type: "unknown"
+    description: "ReAct prompting dataset"
+    size: "28MB"
+    
+  miniowb:
+    local_path: "/media/jerem/jeux&travail/datasets/miniowb"
+    hf_name: "miniowb/miniowb"
+    file_type: "unknown"
+    description: "Mini OpenWebText dataset"
+    size: "18MB"
+
+# Training configurations for different dataset types
+training_configs:
+  agent_instruct_local:
+    command: |
+      python training/qlora_finetune.py \
+        --data /media/jerem/jeux&travail/datasets/agent_instruct/data/*.parquet \
+        --model-config gemma-2b \
+        --output-dir ./results/agent_instruct \
+        --max-steps 1000 \
+        --text-column conversations
+        
+  agent_instruct_hf:
+    command: |
+      python training/qlora_finetune.py \
+        --data agent-instruct/agent-instruct \
+        --model-config gemma-2b \
+        --output-dir ./results/agent_instruct \
+        --max-steps 1000
+        
+  apibench_local:
+    command: |
+      python training/qlora_finetune.py \
+        --data /media/jerem/jeux&travail/datasets/apibench/huggingface_train.json \
+        --model-config gemma-2b \
+        --output-dir ./results/apibench \
+        --max-steps 800
+        
+  multi_dataset:
+    command: |
+      # For mixing multiple datasets, use the mix_datasets.py script first
+      python training/mix_datasets.py \
+        --datasets agent_instruct apibench camel_agent \
+        --output mixed_agent_dataset.jsonl
+      
+      python training/qlora_finetune.py \
+        --data mixed_agent_dataset.jsonl \
+        --model-config gemma-2b \
+        --output-dir ./results/mixed

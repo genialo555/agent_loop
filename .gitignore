@@ -21,10 +21,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Virtual environments
 .env
@@ -34,47 +32,118 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+test_env/
+test_venv/
+test-env/
+test-venv/
+*_venv/
+*_env/
+venv_*/
+env_*/
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# VS Code
+.vscode/
+*.code-workspace
 
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# pyenv
-.python-version
+# Machine Learning
+# Model files (but not code!)
+*.gguf
+*.ggml
+*.bin
+*.pth
+*.pt
+*.pkl
+*.h5
+*.hdf5
+*.safetensors
+*.ckpt
+*.onnx
+*.q4_*
+*.q5_*
+*.q8_*
 
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Model directories (specific, not all models/)
+models/model_cache/
+models/results/
+models/finetuned/
+models/gguf/
+models/logs/*.log
+models/datasets/processed/
+models/datasets/*/data/
+models/datasets/*/*.parquet
+models/wandb/
+models/ollama/
+# Tokenizer files are too large
+tokenizer.json
+tokenizer_config.json
 
-# Terraform
-*.tfstate
-*.tfstate.*
-.terraform/
-.terraform.lock.hcl
-*.tfvars
-!*.tfvars.example
+# Additional ML file formats
+*.tfrecord
+*.npy
+*.npz
+*.msgpack
+*.joblib
 
-# Ansible
-*.retry
-.vault_pass.txt
+# Training artifacts
+checkpoints/
+runs/
+wandb/
+mlruns/
+.aim/
+training_args.bin
+processor_config.json
+preprocessor_config.json
 
-# Logs
-*.log
+# Hugging Face cache
+.cache/huggingface/
+model_cache/
+*/unsloth_compiled_cache/
+unsloth_compiled_cache/
+
+# Data
+data/
+datasets/
 logs/
-agent_screenshots/
+*.jsonl
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.arrow
+*.db
+*.sqlite
+*.sqlite3
+
+# Large files
+*.tar
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.zip
+*.7z
+*.rar
+*.iso
+*.dmg
+
+# Secrets and config
+.env.*
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials/
+config/local.py
 
 # OS
 .DS_Store
@@ -84,21 +153,175 @@ agent_screenshots/
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Logs
+*.log
+logs/
+*.out
+*.err
+
+# Testing
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+coverage.json
+*.cover
+*.py,cover
+.hypothesis/
+.tox/
+htmlcov/
+.nox/
+
+# Documentation
+docs/_build/
+docs/.doctrees/
+site/
+.mkdocs/
+
+# MyPy
+.mypy_cache/
+*/.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre
+.pyre/
+
+# pytype
+.pytype/
+
+# Cython
+cython_debug/
+
+# profiling
+*.prof
+.prof/
+
+# Docker
+# Keep .dockerignore versioned for build optimization
+# .dockerignore
+
+# Docker Compose overrides and local configs
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.*.local.yml
+docker-compose.dev.yml
+
+# Docker build cache and images
+.docker/
+docker-build-cache/
+.buildkit-cache/
+buildx-cache/
+
+# Docker volumes and data directories
+.docker-volumes/
+docker-data/
+prometheus_multiproc_dir/
+wandb_data/
+
+# Docker secrets and environment
+docker-secrets/
+.docker-env
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ansible
+*.retry
+ansible.log
+
+# Node (for any JS tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Temporary files
-/tmp/
 *.tmp
 *.temp
+*.swp
+*.swo
+*.bak
+tmp/
+temp/
 
-# Models and data
-models/
-*.model
-*.bin
-*.gguf
+# Output files
+output/
+results/
+reports/
 
-# Secrets
-.env.local
-.env.production
-*.pem
-*.key
-secrets/
+# Ollama
+.ollama/
+ollama_models/
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
+
+# GPU/CUDA
+*.cuda
+*.cudnn
+
+# Monitoring
+.prometheus/
+.grafana/
+metrics/
+
+# Custom
+scratch/
+experiments/
+old/
+backup/
+TODO.txt
+NOTES.md
+*.old
+*.backup
+
+# Pre-commit
+.pre-commit-config.yaml.bak
+
+# Git
+.git/hooks/*
+!.git/hooks/pre-commit
+!.git/hooks/pre-push
+
+# Application specific
+browser_profiles/
+prometheus_multiproc_dir/
+# Already covered above in models/datasets/processed/
+
+# FastAPI/async patterns
+.asgi_cache/
+*.pid
+
+# Ruff cache
+.ruff_cache/
+
+# Poetry
+poetry.lock
+
+# Claude artifacts
+.claude/
+CLAUDE.local.md
+
+

@@ -1,0 +1,460 @@
+---
+# Blue-Green Deployment Playbook for Agent Loop MLOps
+# This playbook implements a safe blue-green deployment strategy with:
+# - Zero-downtime deployments
+# - Automatic health checks and validation
+# - Rollback capabilities on failure
+# - Progressive traffic shifting
+
+- name: "Blue-Green Deployment for Agent Loop"
+  hosts: production
+  become: true
+  gather_facts: true
+  
+  vars:
+    app_name: "agent-loop"
+    docker_image: "{{ docker_image | default('agent-loop:latest') }}"
+    deployment_type: "{{ deployment_type | default('blue_green') }}"
+    health_check_timeout: 300
+    traffic_shift_delay: 30
+    rollback_on_failure: true
+    
+    # Service configuration
+    service_port: 8000
+    nginx_config_path: "/etc/nginx/sites-available"
+    docker_compose_path: "/opt/agent_loop"
+    
+    # Blue-Green environment configuration
+    blue_env:
+      name: "blue"
+      port: 8001
+      compose_file: "docker-compose.blue.yml"
+      container_name: "agent-loop-blue"
+      
+    green_env:
+      name: "green" 
+      port: 8002
+      compose_file: "docker-compose.green.yml"
+      container_name: "agent-loop-green"
+
+  pre_tasks:
+    - name: "Validate deployment parameters"
+      assert:
+        that:
+          - docker_image is defined
+          - docker_image | length > 0
+        fail_msg: "Docker image must be specified"
+        
+    - name: "Check if this is a rollback deployment"
+      set_fact:
+        is_rollback: "{{ 'rollback' in deployment_type }}"
+        
+    - name: "Determine current active environment"
+      shell: |
+        if docker ps --format "table {{.Names}}" | grep -q "agent-loop-blue"; then
+          echo "blue"
+        elif docker ps --format "table {{.Names}}" | grep -q "agent-loop-green"; then
+          echo "green"
+        else
+          echo "none"
+        fi
+      register: current_env_result
+      changed_when: false
+      
+    - name: "Set environment facts"
+      set_fact:
+        current_env: "{{ current_env_result.stdout }}"
+        target_env: "{{ 'blue' if current_env_result.stdout == 'green' else 'green' }}"
+        current_config: "{{ blue_env if current_env_result.stdout == 'blue' else green_env }}"
+        target_config: "{{ green_env if current_env_result.stdout == 'blue' else blue_env }}"
+
+  tasks:
+    # =========================================================================
+    # PHASE 1: Pre-deployment Validation
+    # =========================================================================
+    
+    - name: "Pre-deployment validation"
+      block:
+        - name: "Check Docker daemon status"
+          systemd:
+            name: docker
+            state: started
+          check_mode: true
+          
+        - name: "Verify Docker image availability"
+          docker_image_info:
+            name: "{{ docker_image }}"
+          register: image_info
+          failed_when: image_info.images | length == 0
+          
+        - name: "Check available disk space"
+          assert:
+            that:
+              - ansible_mounts | selectattr('mount', 'equalto', '/') | map(attribute='size_available') | first > 5000000000
+            fail_msg: "Insufficient disk space for deployment (< 5GB available)"
+            
+        - name: "Verify nginx is running"
+          systemd:
+            name: nginx
+            state: started
+          check_mode: true
+          
+      rescue:
+        - name: "Pre-deployment validation failed"
+          fail:
+            msg: "Pre-deployment validation failed. Aborting deployment."
+
+    # =========================================================================
+    # PHASE 2: Backup Current Configuration
+    # =========================================================================
+    
+    - name: "Backup current configuration"
+      block:
+        - name: "Create backup directory"
+          file:
+            path: "/opt/backups/{{ ansible_date_time.epoch }}"
+            state: directory
+            mode: '0755'
+          register: backup_dir
+          
+        - name: "Backup current nginx configuration"
+          copy:
+            src: "{{ nginx_config_path }}/{{ app_name }}"
+            dest: "{{ backup_dir.path }}/nginx_{{ app_name }}"
+            remote_src: true
+          when: current_env != "none"
+          
+        - name: "Backup current docker-compose configuration"
+          copy:
+            src: "{{ docker_compose_path }}/{{ current_config.compose_file }}"
+            dest: "{{ backup_dir.path }}/{{ current_config.compose_file }}"
+            remote_src: true
+          when: current_env != "none"
+          
+        - name: "Record deployment metadata"
+          copy:
+            content: |
+              deployment_timestamp: {{ ansible_date_time.iso8601 }}
+              docker_image: {{ docker_image }}
+              current_env: {{ current_env }}
+              target_env: {{ target_env }}
+              deployment_type: {{ deployment_type }}
+              backup_location: {{ backup_dir.path }}
+            dest: "{{ backup_dir.path }}/deployment_metadata.yml"
+
+    # =========================================================================
+    # PHASE 3: Prepare Target Environment
+    # =========================================================================
+    
+    - name: "Prepare target environment ({{ target_env }})"
+      block:
+        - name: "Create target environment docker-compose file"
+          template:
+            src: templates/docker-compose.j2
+            dest: "{{ docker_compose_path }}/{{ target_config.compose_file }}"
+            mode: '0644'
+          vars:
+            environment_name: "{{ target_env }}"
+            container_name: "{{ target_config.container_name }}"
+            host_port: "{{ target_config.port }}"
+            container_port: "{{ service_port }}"
+            image: "{{ docker_image }}"
+            
+        - name: "Pull new Docker image"
+          docker_image:
+            name: "{{ docker_image }}"
+            source: pull
+            force_source: true
+          register: image_pull
+          
+        - name: "Stop existing target environment container (if running)"
+          docker_compose:
+            project_src: "{{ docker_compose_path }}"
+            files:
+              - "{{ target_config.compose_file }}"
+            state: absent
+          ignore_errors: true
+
+    # =========================================================================
+    # PHASE 4: Deploy to Target Environment
+    # =========================================================================
+    
+    - name: "Deploy to target environment"
+      block:
+        - name: "Start target environment"
+          docker_compose:
+            project_src: "{{ docker_compose_path }}"
+            files:
+              - "{{ target_config.compose_file }}"
+            state: present
+            pull: true
+          register: deployment_result
+          
+        - name: "Wait for target environment to be ready"
+          uri:
+            url: "http://localhost:{{ target_config.port }}/health"
+            method: GET
+            timeout: 10
+          register: health_check
+          retries: "{{ (health_check_timeout / 10) | int }}"
+          delay: 10
+          until: health_check.status == 200
+          
+        - name: "Validate target environment health"
+          uri:
+            url: "http://localhost:{{ target_config.port }}/ready"
+            method: GET
+            timeout: 30
+          register: readiness_check
+          failed_when: readiness_check.status != 200
+
+    # =========================================================================
+    # PHASE 5: Run Smoke Tests
+    # =========================================================================
+    
+    - name: "Execute smoke tests on target environment"
+      block:
+        - name: "Test basic API functionality"
+          uri:
+            url: "http://localhost:{{ target_config.port }}/run-agent"
+            method: POST
+            body_format: json
+            body:
+              instruction: "Hello, this is a deployment smoke test. Please respond with 'OK'."
+              use_ollama: false
+              temperature: 0.1
+            timeout: 30
+          register: smoke_test_result
+          
+        - name: "Validate smoke test response"
+          assert:
+            that:
+              - smoke_test_result.status == 200
+              - smoke_test_result.json.success == true
+              - "'OK' in smoke_test_result.json.result or 'ok' in smoke_test_result.json.result.lower()"
+            fail_msg: "Smoke test failed - API not responding correctly"
+            
+        - name: "Test Ollama integration (if available)"
+          uri:
+            url: "http://localhost:{{ target_config.port }}/ollama/health"
+            method: GET
+            timeout: 15
+          register: ollama_test
+          ignore_errors: true
+          
+        - name: "Test metrics endpoint"
+          uri:
+            url: "http://localhost:{{ target_config.port }}/metrics"
+            method: GET
+            timeout: 10
+          register: metrics_test
+          failed_when: metrics_test.status != 200
+
+    # =========================================================================
+    # PHASE 6: Progressive Traffic Shift
+    # =========================================================================
+    
+    - name: "Configure progressive traffic shift"
+      block:
+        - name: "Create canary nginx configuration (10% traffic)"
+          template:
+            src: templates/nginx-canary.j2
+            dest: "{{ nginx_config_path }}/{{ app_name }}"
+            mode: '0644'
+          vars:
+            current_env_port: "{{ current_config.port if current_env != 'none' else target_config.port }}"
+            target_env_port: "{{ target_config.port }}"
+            canary_percentage: 10
+          when: current_env != "none"
+          
+        - name: "Configure full traffic to target (first deployment)"
+          template:
+            src: templates/nginx-single.j2
+            dest: "{{ nginx_config_path }}/{{ app_name }}"
+            mode: '0644'
+          vars:
+            target_port: "{{ target_config.port }}"
+          when: current_env == "none"
+          
+        - name: "Reload nginx configuration"
+          systemd:
+            name: nginx
+            state: reloaded
+          
+        - name: "Wait for canary traffic monitoring"
+          wait_for:
+            timeout: "{{ traffic_shift_delay }}"
+          when: current_env != "none"
+          
+        - name: "Monitor canary deployment metrics"
+          uri:
+            url: "http://localhost/metrics"
+            method: GET
+          register: canary_metrics
+          when: current_env != "none"
+
+    # =========================================================================
+    # PHASE 7: Full Traffic Cutover
+    # =========================================================================
+    
+    - name: "Complete traffic cutover"
+      block:
+        - name: "Switch all traffic to target environment"
+          template:
+            src: templates/nginx-single.j2
+            dest: "{{ nginx_config_path }}/{{ app_name }}"
+            mode: '0644'
+          vars:
+            target_port: "{{ target_config.port }}"
+            
+        - name: "Reload nginx for full cutover"
+          systemd:
+            name: nginx
+            state: reloaded
+            
+        - name: "Final health check after cutover"
+          uri:
+            url: "http://localhost/health"
+            method: GET
+            timeout: 10
+          register: final_health_check
+          retries: 5
+          delay: 5
+          until: final_health_check.status == 200
+
+    # =========================================================================
+    # PHASE 8: Cleanup Previous Environment
+    # =========================================================================
+    
+    - name: "Cleanup previous environment"
+      block:
+        - name: "Stop previous environment containers"
+          docker_compose:
+            project_src: "{{ docker_compose_path }}"
+            files:
+              - "{{ current_config.compose_file }}"
+            state: absent
+          when: current_env != "none"
+          
+        - name: "Remove old docker images (keep last 3 versions)"
+          shell: |
+            docker images {{ app_name }} --format "table {{.Repository}}:{{.Tag}}\t{{.CreatedAt}}" | \
+            tail -n +2 | sort -k2 -r | tail -n +4 | awk '{print $1}' | \
+            xargs -r docker rmi
+          ignore_errors: true
+          
+        - name: "Update deployment tracking"
+          lineinfile:
+            path: "/opt/agent_loop/deployment_history.log"
+            line: "{{ ansible_date_time.iso8601 }} - Deployed {{ docker_image }} to {{ target_env }} - SUCCESS"
+            create: true
+
+  # ===========================================================================
+  # POST-DEPLOYMENT TASKS
+  # ===========================================================================
+  
+  post_tasks:
+    - name: "Post-deployment validation"
+      block:
+        - name: "Comprehensive health check"
+          script: "{{ playbook_dir }}/../scripts/health_check.py --endpoint http://localhost --timeout 30"
+          register: comprehensive_health
+          
+        - name: "Log successful deployment"
+          syslog:
+            msg: "Blue-Green deployment completed successfully: {{ docker_image }} deployed to {{ target_env }}"
+            priority: "info"
+            facility: "local0"
+            
+        - name: "Send deployment notification"
+          uri:
+            url: "{{ slack_webhook | default('') }}"
+            method: POST
+            body_format: json
+            body:
+              text: "✅ Blue-Green deployment successful: `{{ docker_image }}` deployed to `{{ target_env }}` environment"
+              channel: "#deployments"
+            timeout: 10
+          when: slack_webhook is defined
+          ignore_errors: true
+
+  # ===========================================================================
+  # ERROR HANDLING AND ROLLBACK
+  # ===========================================================================
+  
+  rescue:
+    - name: "Deployment failed - initiating rollback"
+      block:
+        - name: "Log deployment failure"
+          syslog:
+            msg: "Blue-Green deployment failed: {{ ansible_failed_result.msg | default('Unknown error') }}"
+            priority: "err"
+            facility: "local0"
+            
+        - name: "Restore previous nginx configuration"
+          copy:
+            src: "{{ backup_dir.path }}/nginx_{{ app_name }}"
+            dest: "{{ nginx_config_path }}/{{ app_name }}"
+            remote_src: true
+          when: backup_dir is defined and current_env != "none"
+          
+        - name: "Restart previous environment"
+          docker_compose:
+            project_src: "{{ docker_compose_path }}"
+            files:
+              - "{{ current_config.compose_file }}"
+            state: present
+          when: current_env != "none"
+          
+        - name: "Stop failed target environment"
+          docker_compose:
+            project_src: "{{ docker_compose_path }}"
+            files:
+              - "{{ target_config.compose_file }}"
+            state: absent
+          ignore_errors: true
+          
+        - name: "Reload nginx to restore service"
+          systemd:
+            name: nginx
+            state: reloaded
+          when: current_env != "none"
+          
+        - name: "Verify rollback health"
+          uri:
+            url: "http://localhost/health"
+            method: GET
+            timeout: 10
+          register: rollback_health
+          retries: 5
+          delay: 5
+          when: current_env != "none"
+          
+        - name: "Send rollback notification"
+          uri:
+            url: "{{ slack_webhook | default('') }}"
+            method: POST
+            body_format: json
+            body:
+              text: "🚨 Blue-Green deployment failed and rollback completed. Service restored to previous version."
+              channel: "#deployments"
+            timeout: 10
+          when: slack_webhook is defined
+          ignore_errors: true
+          
+        - name: "Update deployment tracking with failure"
+          lineinfile:
+            path: "/opt/agent_loop/deployment_history.log"
+            line: "{{ ansible_date_time.iso8601 }} - FAILED deployment of {{ docker_image }} to {{ target_env }} - ROLLED BACK"
+            create: true
+            
+        - name: "Fail the playbook after rollback"
+          fail:
+            msg: "Blue-Green deployment failed. Rollback completed. Check logs for details."
+      when: rollback_on_failure | bool
+
+  handlers:
+    - name: "restart nginx"
+      systemd:
+        name: nginx
+        state: restarted

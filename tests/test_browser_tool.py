@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from pathlib import Path
 import tempfile
 import asyncio
-from plugins.browser_tool import BrowserTool
+from agent_loop.agent.plugins.browser_tool import BrowserTool
 
 
 class TestBrowserTool:
@@ -58,7 +58,7 @@ class TestBrowserTool:
                 assert "warning" in result
 
     @pytest.mark.asyncio
-    @patch('plugins.browser_tool.async_playwright')
+    @patch('agent_loop.agent.plugins.browser_tool.async_playwright')
     async def test_browse_with_playwright(self, mock_playwright):
         """Test browser tool using Playwright."""
         # Setup mocks
@@ -94,7 +94,7 @@ class TestBrowserTool:
         assert result["screenshot_path"] is not None
 
     @pytest.mark.asyncio
-    @patch('plugins.browser_tool.async_playwright')
+    @patch('agent_loop.agent.plugins.browser_tool.async_playwright')
     async def test_browse_no_screenshot(self, mock_playwright):
         """Test browser tool without taking screenshot."""
         # Setup mocks similar to above but test screenshot=False

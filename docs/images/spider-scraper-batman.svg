@@ -1,0 +1,211 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Night sky gradient -->
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0e27;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a237e;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Building gradient -->
+    <linearGradient id="buildingGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#455a64;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#37474f;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#263238;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Neon glow for CFP -->
+    <filter id="neonGlow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Bat signal gradient -->
+    <radialGradient id="batSignal" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.9" />
+      <stop offset="30%" style="stop-color:#ffd54f;stop-opacity:0.6" />
+      <stop offset="70%" style="stop-color:#fff59d;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+    </radialGradient>
+    
+    <!-- Shadow filter -->
+    <filter id="shadow">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" opacity="0.5"/>
+    </filter>
+  </defs>
+  
+  <!-- Night sky background -->
+  <rect width="200" height="200" fill="url(#skyGrad)"/>
+  
+  <!-- Stars -->
+  <circle cx="20" cy="20" r="1" fill="white" opacity="0.8"/>
+  <circle cx="50" cy="30" r="1" fill="white" opacity="0.6"/>
+  <circle cx="170" cy="25" r="1" fill="white" opacity="0.7"/>
+  <circle cx="180" cy="40" r="1" fill="white" opacity="0.5"/>
+  
+  <!-- Bat Signal in the sky -->
+  <g id="bat-signal-sky">
+    <!-- Light beam -->
+    <ellipse cx="100" cy="40" rx="60" ry="30" fill="url(#batSignal)">
+      <animate attributeName="opacity" values="0.8;1;0.8" dur="4s" repeatCount="indefinite"/>
+    </ellipse>
+    
+    <!-- Spider robot shadow in the signal -->
+    <g transform="translate(100, 40) scale(0.8)" opacity="0.7">
+      <!-- Simple spider silhouette -->
+      <ellipse cx="0" cy="0" rx="12" ry="8" fill="#000000"/>
+      <circle cx="0" cy="-8" r="6" fill="#000000"/>
+      <!-- Legs -->
+      <line x1="-12" y1="0" x2="-20" y2="-5" stroke="#000000" stroke-width="2"/>
+      <line x1="-12" y1="0" x2="-20" y2="5" stroke="#000000" stroke-width="2"/>
+      <line x1="12" y1="0" x2="20" y2="-5" stroke="#000000" stroke-width="2"/>
+      <line x1="12" y1="0" x2="20" y2="5" stroke="#000000" stroke-width="2"/>
+    </g>
+  </g>
+  
+  <!-- Main Building (shorter, more detailed) -->
+  <g filter="url(#shadow)">
+    <!-- Building base -->
+    <rect x="110" y="60" width="80" height="120" fill="url(#buildingGrad)" rx="2"/>
+    
+    <!-- Building details -->
+    <!-- Vertical lines for texture -->
+    <line x1="125" y1="60" x2="125" y2="180" stroke="#546e7a" stroke-width="1" opacity="0.3"/>
+    <line x1="150" y1="60" x2="150" y2="180" stroke="#546e7a" stroke-width="1" opacity="0.3"/>
+    <line x1="175" y1="60" x2="175" y2="180" stroke="#546e7a" stroke-width="1" opacity="0.3"/>
+    
+    <!-- CFP Billboard on building -->
+    <g id="cfp-billboard">
+      <!-- Billboard frame -->
+      <rect x="120" y="70" width="60" height="25" fill="#e91e63" stroke="#ad1457" stroke-width="2" rx="2"/>
+      <rect x="122" y="72" width="56" height="21" fill="#ec407a" rx="1"/>
+      
+      <!-- CFP Text -->
+      <text x="150" y="87" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="16" font-weight="900" fill="#ffffff" filter="url(#neonGlow)">
+        CFP
+      </text>
+      
+      <!-- Billboard lights -->
+      <circle cx="125" cy="75" r="2" fill="#ffeb3b">
+        <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="175" cy="75" r="2" fill="#ffeb3b">
+        <animate attributeName="opacity" values="1;0.5;1" dur="1s" begin="0.5s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="125" cy="90" r="2" fill="#ffeb3b">
+        <animate attributeName="opacity" values="1;0.5;1" dur="1s" begin="0.25s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="175" cy="90" r="2" fill="#ffeb3b">
+        <animate attributeName="opacity" values="1;0.5;1" dur="1s" begin="0.75s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    
+    <!-- Windows -->
+    <g id="windows" opacity="0.9">
+      <!-- Row 1 -->
+      <rect x="120" y="105" width="15" height="12" fill="#64B5F6">
+        <animate attributeName="opacity" values="1;0.3;1" dur="3s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="140" y="105" width="15" height="12" fill="#ffc107">
+        <animate attributeName="opacity" values="0.3;1;0.3" dur="2.5s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="160" y="105" width="15" height="12" fill="#64B5F6">
+        <animate attributeName="opacity" values="1;0.3;1" dur="3.2s" repeatCount="indefinite"/>
+      </rect>
+      
+      <!-- Row 2 -->
+      <rect x="120" y="125" width="15" height="12" fill="#ffc107">
+        <animate attributeName="opacity" values="0.3;1;0.3" dur="2.8s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="140" y="125" width="15" height="12" fill="#64B5F6">
+        <animate attributeName="opacity" values="1;0.3;1" dur="3s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="160" y="125" width="15" height="12" fill="#ffc107">
+        <animate attributeName="opacity" values="0.3;1;0.3" dur="2.7s" repeatCount="indefinite"/>
+      </rect>
+      
+      <!-- Row 3 -->
+      <rect x="120" y="145" width="15" height="12" fill="#64B5F6">
+        <animate attributeName="opacity" values="1;0.3;1" dur="2.9s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="140" y="145" width="15" height="12" fill="#ffc107">
+        <animate attributeName="opacity" values="0.3;1;0.3" dur="3.1s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="160" y="145" width="15" height="12" fill="#64B5F6">
+        <animate attributeName="opacity" values="1;0.3;1" dur="2.6s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+    
+    <!-- Roof with bat-signal projector -->
+    <g id="projector">
+      <!-- Projector base -->
+      <rect x="140" y="55" width="20" height="6" fill="#37474f" stroke="#263238" stroke-width="1"/>
+      <rect x="142" y="52" width="16" height="3" fill="#546e7a"/>
+      
+      <!-- Projector light -->
+      <ellipse cx="150" cy="54" rx="4" ry="2" fill="#ffeb3b" opacity="0.9">
+        <animate attributeName="opacity" values="0.9;1;0.9" dur="2s" repeatCount="indefinite"/>
+      </ellipse>
+      
+      <!-- Light beam lines -->
+      <line x1="150" y1="52" x2="100" y2="40" stroke="#fff59d" stroke-width="1" opacity="0.3"/>
+      <line x1="150" y1="52" x2="100" y2="40" stroke="#fff59d" stroke-width="2" opacity="0.2">
+        <animate attributeName="opacity" values="0.2;0.4;0.2" dur="3s" repeatCount="indefinite"/>
+      </line>
+    </g>
+  </g>
+  
+  <!-- Spider Robot in foreground -->
+  <g transform="translate(50, 140)" filter="url(#shadow)">
+    <!-- Body -->
+    <ellipse cx="0" cy="0" rx="28" ry="22" fill="#1565C0" stroke="#0D47A1" stroke-width="2"/>
+    <ellipse cx="0" cy="0" rx="22" ry="16" fill="#1976D2" opacity="0.8"/>
+    
+    <!-- Head -->
+    <rect x="-16" y="-35" width="32" height="25" rx="8" fill="#2196F3" stroke="#1565C0" stroke-width="2"/>
+    
+    <!-- Eyes -->
+    <circle cx="-7" cy="-25" r="5" fill="#00E676" filter="url(#neonGlow)">
+      <animate attributeName="r" values="5;4;5" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="7" cy="-25" r="5" fill="#00E676" filter="url(#neonGlow)">
+      <animate attributeName="r" values="5;4;5" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+    </circle>
+    
+    <!-- Spider legs with movement -->
+    <!-- Left legs -->
+    <path d="M -28,0 L -45,-12 L -50,-20" stroke="#0D47A1" stroke-width="4" fill="none" stroke-linecap="round">
+      <animate attributeName="d" values="M -28,0 L -45,-12 L -50,-20;M -28,0 L -45,-12 L -50,-25;M -28,0 L -45,-12 L -50,-20" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+    <path d="M -28,8 L -45,5 L -50,0" stroke="#0D47A1" stroke-width="4" fill="none" stroke-linecap="round">
+      <animate attributeName="d" values="M -28,8 L -45,5 L -50,0;M -28,8 L -45,5 L -50,-5;M -28,8 L -45,5 L -50,0" dur="1.8s" repeatCount="indefinite"/>
+    </path>
+    
+    <!-- Right legs -->
+    <path d="M 28,0 L 45,-12 L 50,-20" stroke="#0D47A1" stroke-width="4" fill="none" stroke-linecap="round">
+      <animate attributeName="d" values="M 28,0 L 45,-12 L 50,-20;M 28,0 L 45,-12 L 50,-25;M 28,0 L 45,-12 L 50,-20" dur="1.7s" repeatCount="indefinite"/>
+    </path>
+    <path d="M 28,8 L 45,5 L 50,0" stroke="#0D47A1" stroke-width="4" fill="none" stroke-linecap="round">
+      <animate attributeName="d" values="M 28,8 L 45,5 L 50,0;M 28,8 L 45,5 L 50,-5;M 28,8 L 45,5 L 50,0" dur="1.6s" repeatCount="indefinite"/>
+    </path>
+    
+    <!-- Core glow -->
+    <circle cx="0" cy="0" r="8" fill="#FF5722" opacity="0.8" filter="url(#neonGlow)">
+      <animate attributeName="opacity" values="0.8;0.4;0.8" dur="1s" repeatCount="indefinite"/>
+    </circle>
+    
+    <!-- Data extraction indicators -->
+    <circle cx="0" cy="-25" r="2" fill="#00E676">
+      <animate attributeName="cy" values="-25;-40;-25" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="1;0;1" dur="2s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  
+  <!-- Title -->
+  <text x="100" y="190" text-anchor="middle" font-family="Courier New, monospace" font-size="14" font-weight="bold" fill="#2196F3">
+    CFP_SCRAPER.exe
+  </text>
+</svg>

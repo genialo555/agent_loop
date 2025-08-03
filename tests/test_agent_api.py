@@ -1,19 +1,23 @@
+from __future__ import annotations
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from httpx import AsyncClient
 import jwt
 
-from inference.api import app
+from agent_loop.models.inference.api import app
 
 
 @pytest.fixture(scope="module")
-async def client():
+async def client() -> AsyncClient:
+    """Create async HTTP client for testing."""
     async with AsyncClient(app=app, base_url="http://test") as ac:
         yield ac
 
 
 @pytest.fixture(scope="module")
-def token():
+def token() -> str:
+    """Generate test token for authentication testing."""
     # For testing purposes, create a simple token without encryption
     expiration = datetime.now(timezone.utc) + timedelta(hours=24)
     payload = {

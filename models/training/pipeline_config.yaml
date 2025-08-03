@@ -1,0 +1,244 @@
+# MLOps Training Pipeline Configuration
+# Production-ready configuration for model training with monitoring
+
+pipeline:
+  name: "agent_training_pipeline"
+  version: "2.0.0"
+  description: "Production ML training pipeline with comprehensive monitoring"
+
+# Orchestration settings
+orchestration:
+  engine: "prefect"  # or "airflow"
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retries: 3
+  retry_delay: 300  # 5 minutes
+  
+# Training configuration
+training:
+  # Model settings
+  model:
+    base_model: "google/gemma-2-2b-it"
+    model_type: "causal_lm"
+    quantization: "4bit"
+    
+  # Dataset settings
+  dataset:
+    train_path: "/home/jerem/agent_loop/models/datasets/processed/unified_format"
+    eval_path: "/home/jerem/agent_loop/models/datasets/processed/eval_splits"
+    max_seq_length: 512
+    preprocessing:
+      num_proc: 8
+      batch_size: 1000
+      
+  # Training hyperparameters
+  hyperparameters:
+    learning_rate: 2.0e-4
+    batch_size: 4
+    gradient_accumulation_steps: 4
+    epochs: 3
+    warmup_steps: 100
+    weight_decay: 0.01
+    max_grad_norm: 1.0
+    
+  # LoRA configuration
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.1
+    target_modules:
+      - "q_proj"
+      - "v_proj"
+      - "k_proj"
+      - "o_proj"
+      
+  # Checkpointing
+  checkpointing:
+    save_strategy: "epoch"
+    save_total_limit: 3
+    checkpoint_dir: "/home/jerem/agent_loop/models/model_checkpoints"
+    push_to_hub: false
+    
+# Monitoring configuration
+monitoring:
+  # Metrics collection
+  metrics:
+    log_interval: 10  # Log every N steps
+    eval_interval: 100  # Evaluate every N steps
+    
+  # Prometheus settings
+  prometheus:
+    enabled: true
+    pushgateway_url: "http://localhost:9091"
+    job_name: "training_job"
+    push_interval: 30  # seconds
+    
+  # Weights & Biases
+  wandb:
+    enabled: true
+    project: "agent-training"
+    entity: null  # Use default
+    tags:
+      - "qlora"
+      - "production"
+    log_model: true
+    
+  # Grafana dashboards
+  grafana:
+    dashboard_uid: "training-metrics"
+    alerts:
+      - name: "loss_spike"
+        condition: "loss > 2 * avg(loss[5m])"
+        severity: "warning"
+      - name: "gradient_explosion"
+        condition: "gradient_norm > 10"
+        severity: "critical"
+      - name: "training_stalled"
+        condition: "rate(training_steps[5m]) == 0"
+        severity: "critical"
+        
+  # Real-time monitoring
+  realtime:
+    websocket_enabled: true
+    log_streaming: true
+    update_frequency: 1  # seconds
+    
+# Alert configuration
+alerting:
+  # Slack notifications
+  slack:
+    enabled: false
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channel: "#ml-training"
+    
+  # Email notifications
+  email:
+    enabled: false
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    from_address: "mlops@example.com"
+    to_addresses:
+      - "team@example.com"
+      
+  # Alert rules
+  rules:
+    - name: "training_failure"
+      condition: "job_status == 'failed'"
+      channels: ["slack", "email"]
+      
+    - name: "convergence_achieved"
+      condition: "loss_variance < 0.001 for 100 steps"
+      channels: ["slack"]
+      
+    - name: "resource_exhaustion"
+      condition: "gpu_memory > 90%"
+      channels: ["slack", "email"]
+      
+# Data validation
+data_validation:
+  enabled: true
+  checks:
+    - type: "schema_validation"
+      strict: true
+      
+    - type: "data_drift"
+      baseline_path: "/home/jerem/agent_loop/models/datasets/processed/metadata/baseline_stats.json"
+      threshold: 0.1
+      
+    - type: "label_distribution"
+      expected_distribution:
+        positive: 0.5
+        negative: 0.5
+      tolerance: 0.1
+      
+# Model validation
+model_validation:
+  # Smoke tests
+  smoke_tests:
+    enabled: true
+    test_samples: 10
+    max_response_time: 1000  # ms
+    
+  # Performance benchmarks
+  benchmarks:
+    - metric: "loss"
+      threshold: 1.0
+      comparison: "less_than"
+      
+    - metric: "perplexity"
+      threshold: 50.0
+      comparison: "less_than"
+      
+    - metric: "tokens_per_second"
+      threshold: 100.0
+      comparison: "greater_than"
+      
+# Deployment configuration
+deployment:
+  strategy: "blue_green"  # or "canary", "rolling"
+  
+  # A/B testing
+  ab_testing:
+    enabled: true
+    traffic_split:
+      control: 0.9
+      experiment: 0.1
+    metrics_collection_period: 3600  # 1 hour
+    
+  # Rollback triggers
+  rollback:
+    auto_rollback: true
+    conditions:
+      - metric: "error_rate"
+        threshold: 0.05
+        window: 300  # 5 minutes
+        
+      - metric: "p99_latency"
+        threshold: 1000  # ms
+        window: 300
+        
+# Resource management
+resources:
+  # GPU allocation
+  gpu:
+    device: "cuda:0"
+    memory_fraction: 0.9
+    allow_growth: true
+    
+  # CPU/Memory limits
+  limits:
+    cpu: "8"
+    memory: "32Gi"
+    
+  # Distributed training
+  distributed:
+    enabled: false
+    backend: "nccl"
+    world_size: 1
+    
+# Security settings
+security:
+  # Model encryption
+  encryption:
+    enabled: true
+    algorithm: "AES-256-GCM"
+    key_path: "/secrets/model_encryption_key"
+    
+  # Access control
+  access_control:
+    authentication: "oauth2"
+    authorized_users:
+      - "mlops-team"
+      
+  # Audit logging
+  audit:
+    enabled: true
+    log_path: "/var/log/training_audit.log"
+    retention_days: 90
+    
+# Environment variables
+environment:
+  CUDA_VISIBLE_DEVICES: "0"
+  PYTORCH_CUDA_ALLOC_CONF: "max_split_size_mb:512"
+  TOKENIZERS_PARALLELISM: "true"
+  HF_DATASETS_CACHE: "/media/jerem/jeux&travail/ml_models/.cache/huggingface/datasets"
+  WANDB_MODE: "online"  # or "offline" for air-gapped environments

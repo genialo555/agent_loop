@@ -6,8 +6,8 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.settings import Settings
-from core.utils import create_logger
+from agent_loop.models.core.settings import Settings
+from agent_loop.models.core.utils import create_logger
 
 
 def test_python_version():

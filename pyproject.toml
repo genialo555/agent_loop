@@ -7,19 +7,19 @@ name = "agent-loop"
 version = "0.1.0"
 description = "AI Agent Loop with VM infrastructure for autonomous task execution"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.12",
 ]
 
 # Tool configurations
 [tool.black]
 line-length = 88
-target-version = ['py313']
+target-version = ['py312']
 include = '\.pyi?$'
 extend-exclude = '''
 (
@@ -65,8 +65,8 @@ line-length = 88
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-# Assume Python 3.13
-target-version = "py313"
+# Assume Python 3.12
+target-version = "py312"
 
 [tool.ruff.mccabe]
 max-complexity = 10
@@ -75,7 +75,7 @@ max-complexity = 10
 known-first-party = ["agent", "core", "inference", "plugins", "training"]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -94,8 +94,8 @@ strict_equality = true
 module = [
     "tests.*",
     "scripts.*",
-    "example_*",
-    "type_guardian_example"
+    "docs.exemples.*",
+    "docs.example_typed_code"
 ]
 ignore_errors = true
 
@@ -125,7 +125,7 @@ addopts = [
     "--durations=10",
     "--color=yes",
     "--cov=agent",
-    "--cov=core",
+    "--cov=core", 
     "--cov=inference",
     "--cov=plugins",
     "--cov=training",
@@ -134,26 +134,60 @@ addopts = [
     "--cov-report=xml:coverage.xml",
     "--cov-fail-under=80",
     "--asyncio-mode=auto",
+    # Parallel execution settings
+    "--dist=worksteal",
+    "--tx=auto",
+    # Performance settings
+    "--maxfail=5",
+    "--timeout=300",
+    # Output formatting
+    "--junit-xml=pytest-results.xml",
+    "--html=pytest-report.html",
+    "--self-contained-html",
 ]
 markers = [
     "slow: marks tests as slow (deselect with -m 'not slow')",
     "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
+    "unit: marks tests as unit tests", 
     "property: marks tests as property-based tests using hypothesis",
     "benchmark: marks tests as performance benchmarks",
     "ollama: marks tests that require Ollama service",
     "browser: marks tests that require browser automation",
     "gpu: marks tests that require GPU",
     "external: marks tests that require external services",
+    "health: marks tests for health endpoints",
+    "api: marks tests for API endpoints",
+    "smoke: marks tests for smoke testing",
+    "regression: marks tests for regression testing",
 ]
 filterwarnings = [
     "error",
     "ignore::UserWarning",
-    "ignore::DeprecationWarning",
+    "ignore::DeprecationWarning", 
     "ignore::PendingDeprecationWarning",
     "ignore:.*unclosed.*:ResourceWarning",
     "ignore:.*Using or importing.*:DeprecationWarning",
+    "ignore:.*aiohttp.*:DeprecationWarning",
+    "ignore:.*httpx.*:DeprecationWarning",
+    "ignore:.*Task was destroyed but it is pending.*:RuntimeWarning",
 ]
+# Test discovery settings
+norecursedirs = [
+    ".*", 
+    "build", 
+    "dist", 
+    "*.egg", 
+    "docs", 
+    "htmlcov",
+    ".tox",
+    ".git",
+    "__pycache__",
+]
+# Asyncio settings
+asyncio_mode = "auto"
+# Timeout settings
+timeout = 300
+timeout_method = "thread"
 
 [tool.coverage.run]
 source = ["agent", "core", "inference", "plugins", "training"]

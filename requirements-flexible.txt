@@ -1,0 +1,139 @@
+# Core dependencies
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+typer>=0.12.0
+
+# Async HTTP
+httpx>=0.27.0
+
+# Browser automation
+playwright>=1.40.0
+humanize>=4.9.0
+
+# Security
+pyjwt>=2.8.0
+
+# Monitoring
+prometheus-client>=0.20.0
+structlog>=24.0.0
+
+# ML (for training later)  
+torch>=2.2.0
+
+# QLoRA Fine-tuning Stack (Sprint 2)
+transformers>=4.45.0
+accelerate>=1.0.0
+bitsandbytes>=0.43.0
+peft>=0.12.0
+trl>=0.10.0
+datasets>=3.0.0
+evaluate>=0.4.0
+protobuf<4.0.0  # Required by unsloth
+sentencepiece>=0.1.99
+unsloth>=2024.11.0
+huggingface-hub>=0.20.0
+
+# Experiment tracking and optimization
+wandb>=0.16.0
+tensorboard>=2.15.0
+
+# Mixed precision and optimization
+# flash-attn>=2.6.0  # Moved to requirements-training.txt (needs torch installed first)
+xformers>=0.0.25
+
+# Memory profiling and monitoring
+psutil>=5.9.0,<6.0.0  # fastapi-utils constraint
+nvidia-ml-py>=12.555.0
+pynvml>=11.5.0
+
+# Terminal UI for monitoring dashboard
+rich>=13.7.0
+plotext>=5.2.0
+
+# Development and Testing (following TST rules)
+pytest>=8.0.0
+pytest-asyncio>=0.23.0          # TST002: async testing
+pytest-cov>=5.0.0               # TST008: coverage tracking
+pytest-mock>=3.12.0             # TST004: mocking support
+pytest-xdist>=3.5.0             # TST005: parallel execution
+pytest-benchmark>=4.0.0         # TST007: performance testing
+pytest-timeout>=2.2.0           # Test timeouts
+pytest-html>=4.1.0              # HTML reporting
+responses>=0.25.0                # TST004: HTTP mocking
+hypothesis>=6.100.0              # TST003: property-based testing
+testcontainers>=4.0.0            # Integration testing with containers
+pytest-sugar>=0.9.7             # Better test output
+pytest-clarity>=1.0.1           # Better assertion diff output
+
+# Code Quality
+black>=24.0.0
+ruff>=0.5.0
+mypy>=1.10.0
+isort>=5.13.0
+bandit>=1.7.8
+pydocstyle>=6.3.0
+
+# Type stubs
+types-psutil>=5.9.0
+types-requests>=2.31.0
+
+# Pre-commit
+pre-commit>=3.6.0
+
+# Scientific Computing and ML Utils
+numpy>=1.26.0
+pandas>=2.1.0
+scipy>=1.11.0
+scikit-learn>=1.4.0
+nltk>=3.8.0
+
+# File I/O and Serialization
+pyyaml>=6.0
+toml>=0.10.2
+aiofiles>=23.0.0
+orjson>=3.9.0  # Fast JSON serialization
+
+# Async utilities
+anyio>=4.0.0
+tenacity>=8.2.0  # Retry logic
+aiocache>=0.12.0  # Async caching
+
+# WebSocket support
+websockets>=12.0
+
+# Environment and Config Management
+python-dotenv>=1.0.0
+environs>=10.0.0
+
+# API Documentation
+apispec>=6.0.0
+marshmallow>=3.20.0
+
+# Additional FastAPI plugins
+fastapi-limiter>=0.1.5
+slowapi>=0.1.8
+fastapi-utils>=0.2.1
+sse-starlette>=2.0.0  # Server-sent events
+
+# Additional Monitoring/Observability
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-exporter-prometheus>=0.45b0
+opentelemetry-instrumentation-fastapi>=0.45b0
+opentelemetry-instrumentation-httpx>=0.45b0
+
+# Additional Security
+cryptography>=42.0.0
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+email-validator>=2.1.0
+
+# Prefect for orchestration (mentioned in CLAUDE.md)
+prefect>=3.0.0
+
+# Additional required for type checking
+types-PyYAML>=6.0.0
+types-toml>=0.10.0
+types-aiofiles>=23.0.0

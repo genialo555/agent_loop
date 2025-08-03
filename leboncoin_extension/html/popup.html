@@ -1,0 +1,282 @@
+<!doctype html>
+<html>
+<head>
+    <link rel="stylesheet" href="../css/w3.css">
+    <link rel="stylesheet" href="../css/popup.css">
+    <script type="module" src="../js/popup.js"></script>
+</head>
+
+<!-- https://www.w3schools.com/w3css/w3css_fonts.asp -->
+<body class="w3-small">
+
+<!-- https://www.w3schools.com/w3css/w3css_grid.asp -->
+<!-- This div represents the 6 tabs *headers* -->
+<div class="w3-row">
+    <div id="tabheader_0" class="w3-col s2 tabheaders">
+        <div class="tablink w3-bottombar w3-hover-light-grey">
+            <span>Accueil</span>
+            &nbsp;
+            <span id="tabheader_badge_0" class="w3-badge w3-color" style="display:none">1</span>
+        </div>
+    </div>
+    <a id="tabheader_1" class="w3-col s2 tabheaders">
+        <div class="tablink w3-bottombar w3-hover-light-grey">
+            <span id="tabheader_title_1"><!--injected--></span>
+            &nbsp;
+            <span id="tabheader_badge_1" class="w3-badge w3-color" style="display:none">1</span>
+        </div>
+    </a>
+    <a id="tabheader_2" class="w3-col s2 tabheaders">
+        <div class="tablink w3-bottombar w3-hover-light-grey">
+            <span id="tabheader_title_2"><!--injected--></span>
+            &nbsp;
+            <span id="tabheader_badge_2" class="w3-badge w3-color" style="display:none">1</span>
+        </div>
+    </a>
+    <a id="tabheader_3" class="w3-col s2 tabheaders">
+        <div class="tablink w3-bottombar w3-hover-light-grey">
+            <span id="tabheader_title_3"><!--injected--></span>
+            &nbsp;
+            <span id="tabheader_badge_3" class="w3-badge w3-color" style="display:none">1</span>
+        </div>
+    </a>
+    <a id="tabheader_4" class="w3-col s2 tabheaders">
+        <div class="tablink w3-bottombar w3-hover-light-grey">
+            <span id="tabheader_title_4"><!--injected--></span>
+            &nbsp;
+            <span id="tabheader_badge_4" class="w3-badge w3-color" style="display:none">1</span>
+        </div>
+    </a>
+    <a id="tabheader_5" class="w3-col s2 tabheaders">
+        <div class="tablink w3-bottombar w3-hover-light-grey">
+            <span id="tabheader_title_5"><!--injected--></span>
+            &nbsp;
+            <span id="tabheader_badge_5" class="w3-badge w3-color" style="display:none">1</span>
+        </div>
+    </a>
+</div>
+
+<!-- This div represents the 6 tabs *content* -->
+<div class="w3-row">
+    <!-- TODO: this is the config tab, the id tag should probably be renamed -->
+    <div id="search_0" class="tabs" style="display:none">
+        <div id="errorDialog_0" class="w3-panel w3-red w3-display-container" style="display:none">
+            <span id="errorDialogButton_0" class="w3-button w3-red w3-large w3-display-topright">&times;</span>
+            <p id="errorMsg_0"><!-- injected--></p>
+        </div>
+
+        <div class="w3-container w3-center">
+            <h1 id="extension_name_0" class="w3-text-color"><!--injected--></h1>
+            <input type="button" id="openTutorialButton_0" class="w3-button w3-round w3-color" value="Tutoriel">
+            <input type="button" id="showLogsButton_0" class="w3-button w3-round w3-color"
+                   value="&nbsp;&nbsp;Logs&nbsp;&nbsp;">
+            <input type="button" id="showAboutButton_0" class="w3-button w3-round w3-color"
+                   value="&nbsp;&nbsp;A propos&nbsp;&nbsp;">
+            <input type="button" id="testButton_0" class="w3-button w3-round w3-color" value="test"
+                   style="display:none">
+        </div>
+
+        <!-- BEGIN config_template -->
+<div class="w3-container">
+    <fieldset>
+        <legend>Configuration</legend>
+        <div class="w3-row">
+            <div class="w3-col s9">
+                <label>Fr&eacute;quence de la recherche automatique (en min):</label>
+            </div>
+        </div>
+        <div class="w3-row">
+            <div class="w3-col s9">
+                <input type="number" id="searchFrequency_0" class="w3-input w3-border w3-round">
+            </div>
+        </div>
+        <div class="w3-row">
+            <div class="w3-col s9">
+                <label>Afficher les notifications:</label>
+                <input type="radio" id="showNotifications_0" class="w3-radio" name="showNotifications">Oui
+                <input type="radio" id="hideNotifications_0" class="w3-radio" name="showNotifications">Non
+            </div>
+        </div>
+        <div class="w3-row">
+            <div class="w3-col s9">
+                <label>Cacher les notifications au bout de 5 secondes:</label>
+                <input type="radio" id="temporaryNotifications_0" class="w3-radio" name="notificationStyle">Oui
+                <input type="radio" id="permanentNotifications_0" class="w3-radio" name="notificationStyle">Non
+            </div>
+        </div>
+        <div class="w3-row">
+            <div class="w3-col s3">&nbsp;</div>
+        </div>
+        <div class="w3-row">
+            <div class="w3-col s3">&nbsp;</div>
+            <div class="w3-col s6 w3-center">
+                <input type="button" id="saveButton_0" class="w3-button w3-round w3-color"
+                       value="Enregistrer">
+            </div>
+        </div>
+        <div class="w3-row">
+            <div class="w3-col s3">&nbsp;</div>
+            <div class="w3-col s6 w3-center">
+                <span id="status_0">&nbsp;</span>
+            </div>
+            <div class="w3-col s3">&nbsp;</div>
+        </div>
+    </fieldset>
+</div>
+<!-- END config_template -->
+
+
+    </div>
+
+    <!--
+    This search tab acts as the template for the following one: it's content will be injected
+    in the following ones (and the "_1" prefix will be renamed accordingly) when the popup is initialized
+    -->
+    <div id="search_1" class="tabs">
+        <div id="errorDialog_1" class="w3-panel w3-red w3-display-container" style="display:none">
+            <span id="errorDialogButton_1" class="w3-button w3-red w3-large w3-display-topright">&times;</span>
+            <p id="errorMsg_1"><!--injected--></p>
+        </div>
+        <!-- https://www.w3schools.com/w3css/w3css_containers.asp -->
+        <div class="w3-container">
+            <fieldset>
+                <legend>Recherche</legend>
+                <label>Label:</label>
+                <div class="w3-row">
+                    <div class="w3-col s10">
+                        <input type="text" id="searchName_1" class="w3-input w3-border w3-round" maxlength="12">
+                    </div>
+                </div>
+                <label>Adresse web:</label>
+                <div class="w3-row">
+                    <div class="w3-col s10">
+                        <input type="text" id="searchUrl_1" class="w3-input w3-border w3-round">
+                    </div>
+                    <div class="w3-col s2">
+                        <input type="button" id="searchUrlOpenButton_1" class="w3-button w3-round w3-color"
+                               value="Ouvrir">
+                    </div>
+                </div>
+                <div class="w3-container w3-center">
+                    <input type="button" id="searchNowButton_1" value="Rechercher"
+                           class="w3-button w3-round w3-color">
+                    <input type="button" id="searchDeleteButton_1" value="Supprimer"
+                           class="w3-button w3-round w3-color">
+                    <!-- Change to "display:block" for testing (do NOT comment since the listener needs to be set -->
+                    <input type="button" id="testButton_1" value="test" class="w3-button w3-round w3-color"
+                           style="display:none">
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>R&eacute;sultat de la recherche</legend>
+                <label>Derni&egrave;re annonce:</label>
+                <div class="w3-row">
+                    <div class="w3-col s10">
+                        <input type="text" id="lastOfferTitle_1" class="w3-input w3-border w3-round w3-light-grey"
+                               disabled>
+                    </div>
+                    <div class="w3-col s2">
+                        <input type="button" id="lastOfferOpenButton_1" class="w3-button w3-round w3-color"
+                               value="Ouvrir">
+                    </div>
+                </div>
+                <label>Derni&egrave;re annonce d&eacute;tect&eacute;e le:</label>
+                <div class="w3-row">
+                    <div class="w3-col s10">
+                        <input type="text" id="lastUpdateDate_1" class="w3-input w3-border w3-round w3-light-grey"
+                               disabled>
+                    </div>
+                </div>
+                <label>Derni&egrave;re recherche effectu&eacute;e le:</label>
+                <div class="w3-row">
+                    <div class="w3-col s10">
+                        <input type="text" id="lastSearchDate_1" class="w3-input w3-border w3-round w3-light-grey"
+                               disabled>
+                    </div>
+                </div>
+                <label>Prochaine recherche automatique pr&eacute;vue le:</label>
+                <div class="w3-row">
+                    <div class="w3-col s10">
+                        <input type="text" id="nextSearchDate_1" class="w3-input w3-border w3-round w3-light-grey"
+                               disabled>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+    </div>
+
+    <div id="search_2" class="tabs" style="display:none">
+        <!-- injected -->
+    </div>
+
+    <div id="search_3" class="tabs" style="display:none">
+        <!-- injected -->
+    </div>
+
+    <div id="search_4" class="tabs" style="display:none">
+        <!-- injected -->
+    </div>
+
+    <div id="search_5" class="tabs" style="display:none">
+        <!-- injected -->
+    </div>
+
+    <div class="w3-container w3-padding w3-center">
+        <span>Cette extension est ind&eacute;pendante du site leboncoin.fr</span>
+    </div>
+
+</div>
+
+<!-- BEGIN logsDialog_template -->
+<div id="logsDialog" class="w3-modal" style="display:none">
+    <div class="w3-modal-content">
+        <div class="w3-container w3-color">
+            <span id="closeLogsButton_0" class="w3-button w3-display-topright">&times;</span>
+            <h6>Logs</h6>
+        </div>
+        <div class="w3-center w3-bar w3-margin-top">
+            <input type="button" id="exportLogsButton_0" value="Sauvegarder"
+                   class="w3-button w3-round w3-tiny w3-color ">
+            <input type="button" id="deleteLogsButton_0" value="Supprimer"
+                   class="w3-button w3-round w3-tiny w3-color">
+        </div>
+        <hr>
+        <div id="logs" class="w3-container">
+            <!-- content injected at runtime -->
+        </div>
+    </div>
+</div>
+<!-- END logsDialog_template -->
+
+
+<!-- BEGIN aboutDialog_template -->
+<div id="aboutDialog" class="w3-modal" style="display:none">
+    <div class="w3-modal-content">
+        <div class="w3-container w3-color">
+            <span id="closeAboutButton1_0" class="w3-button w3-display-topright">&times;</span>
+            <h6 id="aboutDialogTitle"><!--injected--></h6>
+        </div>
+        <!--
+        é = &eacute
+        è = &egrave
+        ê = &ecirc
+        ô = &ocirc
+        à = agrave
+        -->
+        <div id="about" class="w3-container w3-margin-top">
+            Suite a une mise a jour du site leboncoin.fr effectu&eacutee le 25 Septembre 2023, la pr&eacutec&eacutedente version 3.2 de l'extension ne fonctionnait plus.
+            <br><br>
+            Cette nouvelle version 3.3 corrige le probl&egraveme: youpi !
+            <br><br>
+        </div>
+        <div class="w3-center w3-bar">
+            <input type="button" id="closeAboutButton2_0" value="Fermer"
+                   class="w3-button w3-round w3-tiny w3-color ">
+        </div>
+    </div>
+</div>
+<!-- END logsDialog_template -->
+
+
+</body>
+</html>

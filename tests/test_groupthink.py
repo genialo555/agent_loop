@@ -1,7 +1,7 @@
 """Tests for groupthink inference module."""
 
 import pytest
-from inference.groupthink import generate
+from agent_loop.models.inference.groupthink import generate
 
 
 class TestGroupthink:

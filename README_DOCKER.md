@@ -176,7 +176,7 @@ Architecture Docker GPU optimisée pour le fine-tuning QLoRA avec support RTX 40
 - **Stage training**: Image NVIDIA CUDA 12.6 avec PyTorch GPU
 - **Multi-stage build**: Séparation builder/runtime pour optimisation  
 - **GPU Support**: Drivers NVIDIA + CUDA toolkit complet
-- **Memory Optimization**: Configuration RTX 4090 24GB
+- **Memory Optimization**: Configuration RTX 3090 24GB
 
 ### Docker Compose Training
 - **docker-compose.training.yml**: Environnement isolé pour ML
