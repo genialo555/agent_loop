@@ -1,0 +1,116 @@
+# DK005: Exclude files not required for build to optimize Docker context
+
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Documentation and examples
+README.md
+*.md
+docs/
+Dockerfile.example
+
+# Development and testing
+tests/
+htmlcov/
+coverage.xml
+.coverage
+pytest.ini
+.pytest_cache/
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Development tools configuration
+.pre-commit-config.yaml
+pyproject.toml
+requirements-dev.txt
+
+# Terraform and infrastructure
+terraform/
+ansible/
+
+# Scripts and automation
+scripts/
+
+# Training data and models (will be mounted as volumes)
+# DK005: Exclude large ML files - mounted as volumes for performance
+training/datasets/
+models/
+*.gguf
+*.bin
+*.safetensors
+*.pth
+*.pt
+*.h5
+*.pkl
+*.checkpoint
+
+# Training outputs and cache (mounted as volumes)
+model_checkpoints/
+outputs/
+logs/
+wandb/
+.cache/
+__pycache__/
+
+# Large dataset files - use volume mounts instead
+*.jsonl
+*.parquet
+*.arrow
+data/
+
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker files themselves (except the main one)
+docker-compose*.yml
+Dockerfile.*
+
+# Prometheus and monitoring data (will be in volumes)
+prometheus_data/
+grafana_data/
+
+# Node modules if any
+node_modules/
+
+# Example and demo files
+example_*.py
+type_guardian_example.py

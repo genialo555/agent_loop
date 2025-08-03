@@ -1,0 +1,339 @@
+---
+- name: Development Tools and Git Repository Setup
+  hosts: agent-vm
+  become: yes
+  become_user: agent
+  vars:
+    repo_path: "/home/agent/agent-vm"
+    github_repo: "https://github.com/your-org/gemma-agent-loop.git"
+
+  tasks:
+    - name: Configure Git global settings
+      git_config:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        scope: global
+      loop:
+        - { name: "user.name", value: "Gemma Agent" }
+        - { name: "user.email", value: "gemma-agent@example.com" }
+        - { name: "init.defaultBranch", value: "main" }
+        - { name: "core.editor", value: "vim" }
+        - { name: "pull.rebase", value: "false" }
+
+    - name: Initialize Git repository
+      git:
+        repo: "{{ github_repo }}"
+        dest: "{{ repo_path }}"
+        version: main
+      ignore_errors: yes
+      register: git_clone
+
+    - name: Initialize local repository if clone failed
+      shell: |
+        cd {{ repo_path }} || mkdir -p {{ repo_path }}
+        cd {{ repo_path }}
+        git init
+        git branch -M main
+      when: git_clone.failed
+
+    - name: Install pre-commit framework
+      shell: |
+        source /home/agent/.bashrc
+        pip install pre-commit
+      args:
+        executable: /bin/bash
+
+    - name: Create .pre-commit-config.yaml
+      copy:
+        content: |
+          repos:
+            - repo: https://github.com/psf/black
+              rev: 23.12.1
+              hooks:
+                - id: black
+                  language_version: python3.13
+                  args: ['--line-length=88']
+                  
+            - repo: https://github.com/astral-sh/ruff-pre-commit
+              rev: v0.1.9
+              hooks:
+                - id: ruff
+                  args: ['--fix', '--exit-non-zero-on-fix']
+                  
+            - repo: https://github.com/pre-commit/mirrors-mypy
+              rev: v1.8.0
+              hooks:
+                - id: mypy
+                  additional_dependencies: [types-all]
+                  args: ['--strict']
+                  
+            - repo: https://github.com/pre-commit/pre-commit-hooks
+              rev: v4.5.0
+              hooks:
+                - id: trailing-whitespace
+                - id: end-of-file-fixer
+                - id: check-yaml
+                - id: check-added-large-files
+                  args: ['--maxkb=1000']
+                - id: check-merge-conflict
+                - id: check-json
+                - id: check-toml
+                - id: check-ast
+                - id: debug-statements
+                - id: detect-private-key
+                  
+            - repo: https://github.com/pycqa/isort
+              rev: 5.13.2
+              hooks:
+                - id: isort
+                  args: ['--profile', 'black']
+                  
+            - repo: https://github.com/commitizen-tools/commitizen
+              rev: v3.13.0
+              hooks:
+                - id: commitizen
+                  
+            - repo: https://github.com/Lucas-C/pre-commit-hooks
+              rev: v1.5.4
+              hooks:
+                - id: forbid-crlf
+                - id: remove-crlf
+                - id: forbid-tabs
+                - id: remove-tabs
+                  
+            - repo: local
+              hooks:
+                - id: pytest
+                  name: pytest
+                  entry: pytest
+                  language: system
+                  pass_filenames: false
+                  always_run: true
+                  args: ['--cov=.', '--cov-report=term-missing', '--cov-fail-under=90']
+        dest: "{{ repo_path }}/.pre-commit-config.yaml"
+        owner: agent
+        group: agent
+        mode: '0644'
+
+    - name: Create .gitignore
+      copy:
+        content: |
+          # Python
+          __pycache__/
+          *.py[cod]
+          *$py.class
+          *.so
+          .Python
+          build/
+          develop-eggs/
+          dist/
+          downloads/
+          eggs/
+          .eggs/
+          lib/
+          lib64/
+          parts/
+          sdist/
+          var/
+          wheels/
+          pip-wheel-metadata/
+          share/python-wheels/
+          *.egg-info/
+          .installed.cfg
+          *.egg
+          MANIFEST
+          
+          # Virtual environments
+          venv/
+          ENV/
+          env/
+          .venv
+          
+          # PyCharm
+          .idea/
+          
+          # VS Code
+          .vscode/
+          
+          # Jupyter Notebook
+          .ipynb_checkpoints
+          
+          # pyenv
+          .python-version
+          
+          # pytest
+          .pytest_cache/
+          .coverage
+          htmlcov/
+          .tox/
+          .nox/
+          .coverage.*
+          
+          # mypy
+          .mypy_cache/
+          .dmypy.json
+          dmypy.json
+          
+          # Logs
+          *.log
+          logs/
+          
+          # OS
+          .DS_Store
+          Thumbs.db
+          
+          # Secrets
+          .env
+          .env.*
+          secrets/
+          *.pem
+          *.key
+          
+          # Models
+          *.gguf
+          *.bin
+          models/
+          
+          # Data
+          data/
+          *.db
+          *.sqlite
+          
+          # Terraform
+          *.tfstate
+          *.tfstate.*
+          .terraform/
+          .terraform.lock.hcl
+          
+          # Ansible
+          *.retry
+          ansible.log
+        dest: "{{ repo_path }}/.gitignore"
+        owner: agent
+        group: agent
+        mode: '0644'
+
+    - name: Create initial test structure
+      file:
+        path: "{{ repo_path }}/tests"
+        state: directory
+        owner: agent
+        group: agent
+        mode: '0755'
+
+    - name: Create test __init__.py
+      copy:
+        content: |
+          """Test package for Gemma Agent Loop."""
+        dest: "{{ repo_path }}/tests/__init__.py"
+        owner: agent
+        group: agent
+        mode: '0644'
+
+    - name: Create initial test file
+      copy:
+        content: |
+          """Initial test file to ensure pytest works correctly."""
+          
+          import sys
+          from pathlib import Path
+          
+          
+          def test_python_version():
+              """Test that we're using Python 3.13."""
+              assert sys.version_info.major == 3
+              assert sys.version_info.minor == 13
+              
+              
+          def test_project_structure():
+              """Test that basic project structure exists."""
+              project_root = Path(__file__).parent.parent
+              
+              # Check key directories exist
+              assert (project_root / "agent").exists()
+              assert (project_root / "training").exists()
+              assert (project_root / "scripts").exists()
+              assert (project_root / "tests").exists()
+              
+              
+          def test_imports():
+              """Test that main modules can be imported."""
+              try:
+                  import agent
+                  import training
+                  import core
+                  import inference
+                  assert True
+              except ImportError as e:
+                  assert False, f"Failed to import module: {e}"
+        dest: "{{ repo_path }}/tests/test_basic.py"
+        owner: agent
+        group: agent
+        mode: '0644'
+
+    - name: Create pytest configuration
+      copy:
+        content: |
+          [tool.pytest.ini_options]
+          minversion = "7.0"
+          addopts = "-ra -q --strict-markers --cov=. --cov-report=term-missing --cov-fail-under=90"
+          testpaths = ["tests"]
+          python_files = "test_*.py"
+          python_classes = "Test*"
+          python_functions = "test_*"
+          markers = [
+              "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+              "integration: marks tests as integration tests",
+              "unit: marks tests as unit tests",
+          ]
+          
+          [coverage:run]
+          source = ["."]
+          omit = [
+              "*/tests/*",
+              "*/test_*",
+              "*/__pycache__/*",
+              "*/venv/*",
+              "*/.venv/*",
+              "setup.py",
+          ]
+          
+          [coverage:report]
+          exclude_lines = [
+              "pragma: no cover",
+              "def __repr__",
+              "raise AssertionError",
+              "raise NotImplementedError",
+              "if __name__ == .__main__.:",
+              "if TYPE_CHECKING:",
+          ]
+        dest: "{{ repo_path }}/pyproject.toml"
+        owner: agent
+        group: agent
+        mode: '0644'
+
+    - name: Install pre-commit hooks
+      shell: |
+        cd {{ repo_path }}
+        source /home/agent/.bashrc
+        pre-commit install
+        pre-commit install --hook-type commit-msg
+      args:
+        executable: /bin/bash
+
+    - name: Run initial pre-commit on all files
+      shell: |
+        cd {{ repo_path }}
+        source /home/agent/.bashrc
+        pre-commit run --all-files || true
+      args:
+        executable: /bin/bash
+      register: precommit_result
+
+    - name: Add and commit initial setup
+      shell: |
+        cd {{ repo_path }}
+        git add -A
+        git commit -m "Initial repository setup with pre-commit hooks and minimal test coverage" || true
+      args:
+        executable: /bin/bash

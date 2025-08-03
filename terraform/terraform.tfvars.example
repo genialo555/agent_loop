@@ -1,0 +1,29 @@
+# Project configuration
+project_name = "gemma-agent-loop"
+environment  = "dev"
+aws_region   = "us-east-1"
+
+# Network configuration
+# Replace with your VPC and subnet IDs
+vpc_id    = "vpc-xxxxxxxxx"
+subnet_id = "subnet-xxxxxxxxx"
+
+# Optional: specify availability zone (leave commented to use default)
+# availability_zone = "us-east-1a"
+
+# Instance configuration
+instance_type = "m6i.xlarge"  # 4 vCPU, 16 GB RAM
+root_volume_size = 30         # 30 GB SSD
+
+# Security configuration
+# Replace with your key pair name
+key_pair_name = "your-key-pair"
+
+# Access control - Restrict these in production!
+ssh_allowed_ips        = ["YOUR_IP/32"]          # SSH access
+api_allowed_ips        = ["0.0.0.0/0"]          # HTTP/HTTPS/FastAPI access
+monitoring_allowed_ips = ["YOUR_IP/32"]          # Grafana/Prometheus access
+
+# Optional features
+enable_termination_protection = false  # Set to true for production
+enable_ebs_optimization      = true   # Better disk performance

@@ -1,0 +1,18 @@
+---
+# Master playbook for Gemma Agent Loop VM setup
+# This playbook orchestrates all setup tasks in the correct order
+
+- import_playbook: playbooks/base-setup.yml
+  tags: [base, security]
+
+- import_playbook: playbooks/python-setup.yml
+  tags: [python, development]
+
+- import_playbook: playbooks/ollama-setup.yml
+  tags: [ollama, model]
+
+- import_playbook: playbooks/monitoring-setup.yml
+  tags: [monitoring, observability]
+
+- import_playbook: playbooks/dev-tools-setup.yml
+  tags: [dev-tools, git]

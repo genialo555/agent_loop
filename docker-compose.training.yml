@@ -1,0 +1,324 @@
+# Docker Compose pour environnement Fine-tuning QLoRA - Sprint 2
+# Architecture GPU optimisée pour RTX 4090 avec volumes persistants et monitoring
+
+services:
+  # === SERVICE PRINCIPAL DE FINE-TUNING ===
+  # Stage training optimisé avec GPU NVIDIA et gestion mémoire avancée
+  qlora-training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: training  # DK001: Multi-stage build - stage training spécialisé
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: agent-qlora-training
+    environment:
+      # DK007: Configuration GPU optimisée pour training
+      - ENVIRONMENT=training
+      - CUDA_VISIBLE_DEVICES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      
+      # Optimisation mémoire et cache HuggingFace
+      - HF_HOME=/app/models/.cache/huggingface
+      - TRANSFORMERS_CACHE=/app/models/.cache/transformers
+      - TORCH_HOME=/app/models/.cache/torch
+      - HF_DATASETS_CACHE=/app/models/.cache/datasets
+      
+      # Configuration training RTX 4090
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      - CUDA_LAUNCH_BLOCKING=0
+      - TOKENIZERS_PARALLELISM=false
+      
+      # Monitoring et logging
+      - WANDB_PROJECT=agent-loop-qlora
+      - WANDB_MODE=offline  # Mode offline pour éviter upload pendant training
+      - WANDB_DIR=/app/logs/wandb
+      
+      # Configuration fine-tuning
+      - QLORA_MODEL_CONFIG=gemma-2b
+      - QLORA_MAX_STEPS=1000
+      - QLORA_BATCH_SIZE=4
+      - QLORA_LEARNING_RATE=2e-4
+    volumes:
+      # DK005: Volume strategy optimisée pour ML workloads
+      # Données d'entraînement (read-only pour sécurité)
+      - ./datasets:/app/datasets:ro
+      
+      # Modèles et cache persistants - volumes nommés pour performance
+      - training_models_cache:/app/models/.cache:rw        # Cache HF (~2-5GB)
+      - training_models_gguf:/app/models/gguf:rw           # Modèles GGUF (~4-8GB)
+      - training_checkpoints:/app/outputs:rw               # Checkpoints training (~1-3GB)
+      - training_logs:/app/logs:rw                         # Logs et métriques
+      
+      # Configuration et scripts (développement uniquement)
+      - ./training/qlora_config.py:/app/training/qlora_config.py:ro
+      - ./training/qlora_finetune.py:/app/training/qlora_finetune.py:ro
+    networks:
+      - training-network
+    # DK006: GPU resource allocation avec limites mémoire
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1  # Single GPU pour éviter complexité multi-GPU
+              capabilities: [gpu]
+        limits:
+          memory: 20G  # Limite container à 20GB pour laisser 4GB au système
+    # Health check spécialisé pour training GPU
+    healthcheck:
+      test: >
+        python -c "
+        import torch, sys;
+        gpu_available = torch.cuda.is_available();
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1e9 if gpu_available else 0;
+        print(f'GPU: {gpu_available}, Memory: {gpu_memory:.1f}GB');
+        sys.exit(0 if gpu_available and gpu_memory > 20 else 1)
+        "
+      interval: 120s  # Moins fréquent pour éviter interruption training
+      timeout: 30s
+      retries: 2
+      start_period: 180s  # Temps de démarrage long pour download modèles
+    # Command par défaut - peut être override
+    command: >
+      python training/qlora_finetune.py
+      --model-config gemma-2b
+      --data /app/datasets/processed/train_splits
+      --output-dir /app/outputs/gemma-2b-qlora
+      --max-steps 1000
+      --batch-size 4
+      --wandb-project agent-loop-qlora
+    restart: "no"  # Training jobs ne doivent pas redémarrer automatiquement
+    profiles:
+      - training
+
+  # === SERVICE DE DÉVELOPPEMENT INTERACTIF ===
+  # Jupyter + TensorBoard pour développement et debugging
+  training-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: training
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: agent-training-dev
+    environment:
+      - ENVIRONMENT=development
+      - CUDA_VISIBLE_DEVICES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_HOME=/app/models/.cache/huggingface
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=agent-dev-2024
+    ports:
+      - "8888:8888"  # Jupyter Lab
+      - "6006:6006"  # TensorBoard
+      - "8265:8265"  # Ray Dashboard (si utilisé)
+    volumes:
+      # Mounts development pour hot reload
+      - .:/app:rw
+      - /app/__pycache__
+      - /app/.pytest_cache
+      
+      # Volumes training partagés
+      - training_models_cache:/app/models/.cache:rw
+      - training_models_gguf:/app/models/gguf:rw
+      - training_checkpoints:/app/outputs:rw
+      - training_logs:/app/logs:rw
+    networks:
+      - training-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # Commande pour développement interactif
+    command: >
+      sh -c "
+        echo '🚀 Starting development environment...' &&
+        pip install jupyter jupyterlab tensorboard &&
+        echo '📚 Jupyter Lab: http://localhost:8888 (token: agent-dev-2024)' &&
+        echo '📊 TensorBoard: http://localhost:6006' &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --notebook-dir=/app --NotebookApp.token=agent-dev-2024
+      "
+    restart: unless-stopped
+    profiles:
+      - training-dev
+
+  # === SERVICE DE MONITORING AVANCÉ ===
+  # Weights & Biases local + monitoring GPU
+  training-monitor:
+    image: wandb/local:latest
+    container_name: agent-training-monitor
+    ports:
+      - "8080:8080"  # W&B Local UI
+    volumes:
+      - wandb_local_data:/vol
+      - training_logs:/logs:ro  # Accès read-only aux logs
+    networks:
+      - training-network
+    environment:
+      - WANDB_BASE_URL=http://localhost:8080
+      - LOCAL=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    profiles:
+      - training
+      - training-dev
+
+  # === SERVICE GPU MONITORING ===
+  # Surveillance des métriques GPU en temps réel
+  gpu-monitor:
+    image: nvidia/cuda:12.6.0-runtime-ubuntu22.04
+    container_name: agent-gpu-monitor
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - training_logs:/logs:rw
+    networks:
+      - training-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, utility]
+    # Script de monitoring GPU custom
+    command: >
+      sh -c "
+        apt-get update && apt-get install -y curl python3 python3-pip &&
+        pip3 install nvidia-ml-py3 &&
+        python3 -c '
+        import nvidia_ml_py3.nvidia_ml_py as nvml
+        import time, json
+        nvml.nvmlInit()
+        while True:
+            handle = nvml.nvmlDeviceGetHandleByIndex(0)
+            info = nvml.nvmlDeviceGetMemoryInfo(handle)
+            util = nvml.nvmlDeviceGetUtilizationRates(handle)
+            power = nvml.nvmlDeviceGetPowerUsage(handle) / 1000.0
+            temp = nvml.nvmlDeviceGetTemperature(handle, nvml.NVML_TEMPERATURE_GPU)
+            
+            metrics = {
+                \"timestamp\": time.time(),
+                \"gpu_util\": util.gpu,
+                \"memory_util\": util.memory, 
+                \"memory_used_gb\": info.used / 1e9,
+                \"memory_total_gb\": info.total / 1e9,
+                \"power_watts\": power,
+                \"temperature_c\": temp
+            }
+            
+            with open(\"/logs/gpu_metrics.jsonl\", \"a\") as f:
+                f.write(json.dumps(metrics) + \"\\n\")
+            
+            print(f\"GPU: {util.gpu}% | Memory: {info.used/1e9:.1f}/{info.total/1e9:.1f}GB | Power: {power:.1f}W | Temp: {temp}°C\")
+            time.sleep(5)
+        '
+      "
+    restart: unless-stopped
+    profiles:
+      - training
+      - training-dev
+
+  # === SERVICE DE BACKUP AUTOMATIQUE ===
+  # Sauvegarde périodique des checkpoints critiques
+  training-backup:
+    image: alpine:3.19
+    container_name: agent-training-backup
+    volumes:
+      - training_checkpoints:/checkpoints:ro
+      - training_backup:/backup:rw
+      - ./scripts:/scripts:ro
+    networks:
+      - training-network
+    # Backup script toutes les heures pendant training
+    command: >
+      sh -c "
+        while true; do
+          echo '💾 Starting checkpoint backup...'
+          rsync -av --delete /checkpoints/ /backup/
+          echo '✅ Backup completed at $(date)'
+          sleep 3600  # Backup every hour
+        done
+      "
+    restart: unless-stopped
+    profiles:
+      - training
+
+# === VOLUMES OPTIMISÉS POUR ML WORKLOADS ===
+volumes:
+  # Cache modèles HuggingFace - volume performant pour accès fréquents
+  training_models_cache:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./models/.cache  # Local SSD pour performance
+  
+  # Modèles GGUF - stockage persistant pour modèles quantifiés
+  training_models_gguf:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,rw
+      device: ./models/gguf
+  
+  # Checkpoints training - volume critique avec backup
+  training_checkpoints:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,rw  
+      device: ./model_checkpoints
+  
+  # Logs structurés - accès multi-services
+  training_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,rw
+      device: ./logs
+  
+  # Données W&B local
+  wandb_local_data:
+    driver: local
+  
+  # Volume backup sécurisé
+  training_backup:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,rw
+      device: ./backups/training
+
+# === RÉSEAU ISOLÉ POUR TRAINING ===
+networks:
+  training-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+          gateway: 172.25.0.1
+    driver_opts:
+      com.docker.network.bridge.name: training-br0
+
+# === COMMANDES D'USAGE ===
+# Production training:
+#   docker-compose -f docker-compose.training.yml --profile training up -d
+#
+# Development training:  
+#   docker-compose -f docker-compose.training.yml --profile training-dev up -d
+#
+# Training complet avec monitoring:
+#   docker-compose -f docker-compose.training.yml --profile training --profile training-dev up -d
+#
+# Nettoyage:
+#   docker-compose -f docker-compose.training.yml down -v --remove-orphans

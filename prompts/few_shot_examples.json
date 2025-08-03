@@ -1,0 +1,60 @@
+{
+  "examples": [
+    {
+      "instruction": "Go to example.com and get the page title",
+      "response": "I'll help you get the page title from example.com.\n\n<step_hint>\nPlan:\n1. Navigate to example.com\n2. Wait for page to load\n3. Extract the title from the page\n</step_hint>\n\nCALL_TOOL: {\"tool\": \"browse\", \"parameters\": {\"url\": \"https://example.com\"}}",
+      "tool_result": "{\"status\": \"success\", \"page_loaded\": true}",
+      "next_action": "CALL_TOOL: {\"tool\": \"extract\", \"parameters\": {\"selector\": \"title\", \"type\": \"text\"}}",
+      "final_result": "{\"status\": \"success\", \"data\": {\"title\": \"Example Domain\"}, \"source\": \"https://example.com\", \"confidence\": 1.0}"
+    },
+    {
+      "instruction": "Search for 'Python tutorials' on Google and get the first result",
+      "response": "I'll search for Python tutorials on Google and retrieve the first result for you.\n\n<step_hint>\nPlan:\n1. Go to Google search\n2. Type 'Python tutorials' in search box\n3. Click search button\n4. Wait for results to load\n5. Extract the first result's title and link\n</step_hint>\n\nCALL_TOOL: {\"tool\": \"browse\", \"parameters\": {\"url\": \"https://www.google.com\"}}",
+      "sequence": [
+        {
+          "action": "CALL_TOOL: {\"tool\": \"type\", \"parameters\": {\"selector\": \"textarea[name='q']\", \"text\": \"Python tutorials\"}}",
+          "result": "{\"status\": \"success\"}"
+        },
+        {
+          "action": "CALL_TOOL: {\"tool\": \"click\", \"parameters\": {\"selector\": \"input[type='submit']\"}}",
+          "result": "{\"status\": \"success\", \"page_loaded\": true}"
+        },
+        {
+          "action": "CALL_TOOL: {\"tool\": \"wait\", \"parameters\": {\"selector\": \"#search\", \"timeout\": 5000}}",
+          "result": "{\"status\": \"success\"}"
+        },
+        {
+          "action": "CALL_TOOL: {\"tool\": \"extract\", \"parameters\": {\"selector\": \"#search .g:first-child h3\", \"type\": \"text\"}}",
+          "result": "{\"text\": \"Python Tutorial - W3Schools\"}"
+        }
+      ]
+    },
+    {
+      "instruction": "Fill out a contact form with name 'John Doe' and email 'john@example.com'",
+      "response": "I'll help you fill out the contact form with the provided information.\n\n<step_hint>\nPlan:\n1. First, I need the URL of the contact form\n2. Navigate to the form page\n3. Find the name input field\n4. Enter 'John Doe'\n5. Find the email input field  \n6. Enter 'john@example.com'\n7. Submit the form if needed\n</step_hint>\n\nI notice you haven't provided the URL for the contact form. Could you please share the website URL where the contact form is located?"
+    },
+    {
+      "instruction": "Extract all product names from a shopping page",
+      "response": "I'll help you extract all product names from the shopping page.\n\n<step_hint>\nPlan:\n1. Navigate to the shopping page URL\n2. Wait for products to load (they might load dynamically)\n3. Identify the common selector for product names\n4. Extract all matching elements\n5. Return the list in a structured format\n</step_hint>\n\nI need the URL of the shopping page to proceed. Please provide the website address you'd like me to extract product names from.",
+      "with_url": {
+        "instruction": "Extract all product names from https://shop.example.com/products",
+        "action": "CALL_TOOL: {\"tool\": \"browse\", \"parameters\": {\"url\": \"https://shop.example.com/products\"}}",
+        "extract": "CALL_TOOL: {\"tool\": \"extract\", \"parameters\": {\"selector\": \".product-card .product-name\", \"type\": \"text_all\"}}"
+      }
+    }
+  ],
+  "error_examples": [
+    {
+      "scenario": "Element not found",
+      "response": "The search button couldn't be found with the expected selector. Let me try alternative approaches.\n\n<step_hint>\nDebugging steps:\n1. Take a screenshot to see current page state\n2. Try alternative selectors\n3. Check if page fully loaded\n</step_hint>\n\nCALL_TOOL: {\"tool\": \"screenshot\", \"parameters\": {}}"
+    },
+    {
+      "scenario": "Page timeout",
+      "response": "The page is taking longer than expected to load. This could be due to slow network or heavy content.\n\n<step_hint>\nRecovery plan:\n1. Wait a bit longer (increase timeout)\n2. Try refreshing the page\n3. Check if partial content is available\n</step_hint>\n\nCALL_TOOL: {\"tool\": \"wait\", \"parameters\": {\"timeout\": 10000}}"
+    },
+    {
+      "scenario": "CAPTCHA detected",
+      "response": "I've encountered a CAPTCHA on this page. As an automated agent, I cannot solve CAPTCHAs to respect the website's security measures.\n\n{\"error\": \"captcha_detected\", \"message\": \"The website requires CAPTCHA verification to proceed\", \"suggestion\": \"You may need to complete this task manually or use a CAPTCHA solving service if authorized\"}"
+    }
+  ]
+}

@@ -1,0 +1,298 @@
+---
+- name: Python 3.13.5 Environment Setup via pyenv
+  hosts: agent-vm
+  become: yes
+  become_user: agent
+  vars:
+    python_version: "3.13.5"
+    pyenv_root: "/home/agent/.pyenv"
+    venv_name: "gemma-agent"
+    # Additional compilation flags for Python 3.13.5 optimization
+    python_configure_opts: "--enable-optimizations --with-lto --enable-loadable-sqlite-extensions"
+    python_cflags: "-march=native -O3"
+
+  tasks:
+    - name: Install pyenv dependencies for Python 3.13.5
+      become: yes
+      become_user: root
+      apt:
+        name:
+          # Core build tools
+          - make
+          - build-essential
+          - gcc
+          - g++
+          - cmake
+          # SSL/TLS support
+          - libssl-dev
+          - ca-certificates
+          # Compression libraries
+          - zlib1g-dev
+          - libbz2-dev
+          - liblzma-dev
+          - libzip-dev
+          # Database support
+          - libsqlite3-dev
+          - libgdbm-dev
+          - libgdbm-compat-dev
+          # Readline and ncurses
+          - libreadline-dev
+          - libncursesw5-dev
+          - libncurses5-dev
+          # Network tools
+          - wget
+          - curl
+          # LLVM for optimizations
+          - llvm
+          - llvm-dev
+          # GUI support (tkinter)
+          - tk-dev
+          - libx11-dev
+          # XML processing
+          - libxml2-dev
+          - libxmlsec1-dev
+          # FFI support
+          - libffi-dev
+          # Additional utilities
+          - xz-utils
+          - uuid-dev
+          - libedit-dev
+          # Git for pyenv
+          - git
+          # Python 3.13.5 specific dependencies
+          - pkg-config
+          - libmpdec-dev
+          - libexpat1-dev
+          - libc6-dev
+        state: present
+        update_cache: yes
+
+    - name: Clone pyenv repository
+      git:
+        repo: https://github.com/pyenv/pyenv.git
+        dest: "{{ pyenv_root }}"
+        version: master
+
+    - name: Clone pyenv-virtualenv plugin
+      git:
+        repo: https://github.com/pyenv/pyenv-virtualenv.git
+        dest: "{{ pyenv_root }}/plugins/pyenv-virtualenv"
+        version: master
+
+    - name: Configure pyenv in bashrc
+      blockinfile:
+        path: /home/agent/.bashrc
+        block: |
+          export PYENV_ROOT="{{ pyenv_root }}"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init --path)"
+          eval "$(pyenv init -)"
+          eval "$(pyenv virtualenv-init -)"
+        marker: "# {mark} PYENV MANAGED BLOCK"
+
+    - name: Install Python {{ python_version }}
+      shell: |
+        source /home/agent/.bashrc
+        export PYTHON_CONFIGURE_OPTS="{{ python_configure_opts }}"
+        export PYTHON_CFLAGS="{{ python_cflags }}"
+        pyenv install {{ python_version }} -s
+        pyenv global {{ python_version }}
+      args:
+        executable: /bin/bash
+        creates: "{{ pyenv_root }}/versions/{{ python_version }}"
+      environment:
+        PYTHON_CONFIGURE_OPTS: "{{ python_configure_opts }}"
+        PYTHON_CFLAGS: "{{ python_cflags }}"
+
+    - name: Create global virtual environment
+      shell: |
+        source /home/agent/.bashrc
+        pyenv virtualenv {{ python_version }} {{ venv_name }}
+        pyenv global {{ venv_name }}
+      args:
+        executable: /bin/bash
+        creates: "{{ pyenv_root }}/versions/{{ venv_name }}"
+
+    - name: Upgrade pip in virtual environment
+      shell: |
+        source /home/agent/.bashrc
+        pip install --upgrade pip setuptools wheel
+      args:
+        executable: /bin/bash
+
+    - name: Install base Python packages with typing support
+      shell: |
+        source /home/agent/.bashrc
+        pip install --upgrade \
+          black \
+          ruff \
+          mypy \
+          pytest \
+          pytest-cov \
+          pytest-asyncio \
+          pydantic>=2.0 \
+          attrs \
+          typing-extensions \
+          types-requests \
+          types-PyYAML \
+          pyright
+      args:
+        executable: /bin/bash
+
+    - name: Create .python-version file with Python version
+      copy:
+        content: "{{ python_version }}"
+        dest: /home/agent/.python-version
+        owner: agent
+        group: agent
+        mode: '0644'
+    
+    - name: Create .python-version file in project root
+      copy:
+        content: "{{ python_version }}"
+        dest: /home/agent/project/.python-version
+        owner: agent
+        group: agent
+        mode: '0644'
+      ignore_errors: yes
+
+    - name: Create pyproject.toml
+      copy:
+        content: |
+          [tool.black]
+          line-length = 88
+          target-version = ['py313']
+          include = '\.pyi?$'
+          
+          [tool.ruff]
+          line-length = 88
+          target-version = "py313"
+          select = ["E", "F", "I", "N", "W", "B", "C90", "D", "UP", "S"]
+          ignore = ["D100", "D101", "D102", "D103", "D104"]
+          
+          [tool.mypy]
+          python_version = "3.13"
+          strict = true
+          warn_return_any = true
+          warn_unused_configs = true
+          disallow_untyped_defs = true
+          disallow_incomplete_defs = true
+          check_untyped_defs = true
+          disallow_untyped_decorators = true
+          no_implicit_optional = true
+          warn_redundant_casts = true
+          warn_unused_ignores = true
+          warn_no_return = true
+          warn_unreachable = true
+          strict_equality = true
+          namespace_packages = true
+          explicit_package_bases = true
+          
+          [[tool.mypy.overrides]]
+          module = "tests.*"
+          ignore_errors = false
+          
+          [tool.pytest.ini_options]
+          minversion = "7.0"
+          addopts = "-ra -q --strict-markers --cov=. --cov-report=term-missing --cov-fail-under=90"
+          testpaths = ["tests"]
+          python_files = "test_*.py"
+          python_classes = "Test*"
+          python_functions = "test_*"
+        dest: /home/agent/pyproject.toml
+        owner: agent
+        group: agent
+        mode: '0644'
+
+    - name: Verify Python installation
+      shell: |
+        source /home/agent/.bashrc
+        python --version
+        which python
+        pyenv version
+      args:
+        executable: /bin/bash
+      register: python_check
+      changed_when: false
+
+    - name: Display Python installation details
+      debug:
+        msg: "{{ python_check.stdout_lines }}"
+
+    - name: Create type stubs directory
+      file:
+        path: /home/agent/.mypy_cache
+        state: directory
+        owner: agent
+        group: agent
+        mode: '0755'
+
+    - name: Configure VS Code settings for Python
+      copy:
+        content: |
+          {
+            "python.defaultInterpreterPath": "~/.pyenv/versions/{{ venv_name }}/bin/python",
+            "python.linting.enabled": true,
+            "python.linting.mypyEnabled": true,
+            "python.linting.ruffEnabled": true,
+            "python.formatting.provider": "black",
+            "python.testing.pytestEnabled": true,
+            "python.analysis.typeCheckingMode": "strict",
+            "python.analysis.autoImportCompletions": true,
+            "python.analysis.completeFunctionParens": true,
+            "editor.formatOnSave": true,
+            "editor.rulers": [88],
+            "[python]": {
+              "editor.codeActionsOnSave": {
+                "source.organizeImports": true
+              }
+            }
+          }
+        dest: /home/agent/.vscode/settings.json
+        owner: agent
+        group: agent
+        mode: '0644'
+      ignore_errors: yes
+
+    - name: Create Python type checking script
+      copy:
+        content: |
+          #!/usr/bin/env python3
+          """Type checking utility script."""
+          from __future__ import annotations
+
+          import subprocess
+          import sys
+          from pathlib import Path
+          from typing import NoReturn
+
+          def run_type_checks() -> NoReturn:
+              """Run all type checking tools."""
+              commands: list[tuple[str, list[str]]] = [
+                  ("MyPy", ["mypy", "--config-file", "pyproject.toml", "."]),
+                  ("Pyright", ["pyright"]),
+                  ("Ruff", ["ruff", "check", "."]),
+                  ("Black", ["black", "--check", "."]),
+              ]
+              
+              for name, cmd in commands:
+                  print(f"\n{'='*60}")
+                  print(f"Running {name}...")
+                  print('='*60)
+                  result = subprocess.run(cmd, capture_output=True, text=True)
+                  print(result.stdout)
+                  if result.stderr:
+                      print(result.stderr, file=sys.stderr)
+                  if result.returncode != 0:
+                      print(f"\n{name} failed with exit code {result.returncode}")
+                      sys.exit(result.returncode)
+              
+              print("\n✅ All type checks passed!")
+              sys.exit(0)
+
+          if __name__ == "__main__":
+              run_type_checks()
+        dest: /home/agent/type_check.py
+        owner: agent
+        group: agent
+        mode: '0755'

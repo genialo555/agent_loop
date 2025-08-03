@@ -1,0 +1,102 @@
+ordre:
+  id: "AUDIT-INFRASTRUCTURE-001"
+  timestamp: "2025-07-31T23:31:32Z"
+  session: "audit_session_20250731_233132"
+  de: "agent-orchestrator"
+  pour: ["docker-container-architect", "system-architect", "guardrails-auditor"]
+  
+  mission:
+    type: "audit_infrastructure"
+    priorité: "CRITIQUE"
+    approche: "progressive_et_douce"
+    
+    scope_principal:
+      - "Dockerfile (multi-stage avec GPU)"
+      - "docker-compose.yml (à vérifier si présent)"
+      - "Makefile (build et CI/CD)"
+      - ".dockerignore"
+      - "infrastructure/ (si présent)"
+      - "terraform/ (configuration IaC)"
+      - "ansible/ (provisioning)"
+      
+    objectifs_spécifiques:
+      docker_container_architect:
+        - "Analyser sécurité Dockerfile multi-stage"
+        - "Vérifier optimisations BuildKit et cache mounts"
+        - "Contrôler privilèges utilisateurs non-root"
+        - "Examiner stages GPU/training vs runtime"
+        - "Valider health checks et monitoring"
+        - "Audit des dépendances système et Python"
+        
+      system_architect:
+        - "Évaluer architecture globale et patterns"
+        - "Analyser cohérence structure folders"
+        - "Contrôler séparation des responsabilités"
+        - "Examiner configuration environnements"
+        - "Vérifier conformité Clean Architecture"
+        
+      guardrails_auditor:
+        - "Audit sécurité globale infrastructure"
+        - "Contrôler exposition des ports et services"
+        - "Vérifier gestion des secrets et variables env"
+        - "Examiner surfaces d'attaque potentielles"
+        - "Valider configurations de sécurité"
+    
+  contexte_technique:
+    architecture_actuelle:
+      - "Multi-stage Dockerfile avec 6 stages (builder, runtime, dev, test, training-builder, training)"
+      - "Support GPU NVIDIA CUDA 12.1.1 pour training"
+      - "Utilisateurs non-root (agent, trainer)"
+      - "Python 3.13 pour runtime, 3.11 pour training"
+      - "Cache BuildKit et optimisations"
+      
+    composants_critiques:
+      - "Stage production avec FastAPI sur port 8000"
+      - "Stage training avec support GPU et torch"
+      - "Health checks pour orchestration"
+      - "Virtual envs isolés par stage"
+      
+  risques_identifiés:
+    sécurité:
+      - "Exposition potentielle ports non nécessaires"
+      - "Gestion secrets dans variables d'environnement"
+      - "Privilèges containers et utilisateurs"
+      
+    performance:
+      - "Taille images Docker optimisée ?"
+      - "Efficacité cache layers"
+      - "Resource limits non définis"
+      
+    fiabilité:
+      - "Health checks suffisants ?"
+      - "Gestion erreurs dans les stages"
+      - "Robustesse des builds multi-stage"
+  
+  livrables_attendus:
+    format: "RAPPORT_STANDARD_v2"
+    sections_obligatoires:
+      - "executive_summary"
+      - "analyse_technique_détaillée"
+      - "findings_critiques"
+      - "findings_importants"
+      - "findings_mineurs"
+      - "recommandations_immédiates"
+      - "recommandations_moyen_terme"
+      - "plan_action_priorisé"
+      
+  contraintes:
+    durée: "30 minutes maximum"
+    approche: "analyse_non_intrusive"
+    modifications: "aucune sans validation explicite"
+    coordination: "via system-architect lead"
+    
+  protocole_rapport:
+    deadline: "2025-07-31T23:50:00Z"
+    format_fichier: "rapports/RAPPORT_INFRASTRUCTURE_{agent}.md"
+    communication: "logs/infrastructure_audit.log"
+    
+  notes_orchestrateur: |
+    ATTENTION: Le Dockerfile présente une architecture sophistiquée avec 6 stages.
+    Focus spécial sur les stages GPU/training et sécurité utilisateurs non-root.
+    Coordination essentielle entre les 3 agents pour éviter doublons.
+    Prioriser les risques de sécurité sur les optimisations de performance.

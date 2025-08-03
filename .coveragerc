@@ -1,0 +1,35 @@
+[run]
+source = .
+omit = 
+    tests/*
+    */tests/*
+    */__pycache__/*
+    */venv/*
+    */env/*
+    .venv/*
+    setup.py
+    */site-packages/*
+    */migrations/*
+    */node_modules/*
+    terraform/*
+    ansible/*
+    docs/*
+    scripts/*
+    .pytest_cache/*
+    htmlcov/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.DEBUG
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+
+[html]
+directory = htmlcov

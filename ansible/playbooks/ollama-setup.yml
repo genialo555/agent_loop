@@ -1,0 +1,509 @@
+---
+- name: Ollama 0.10.0-rc2 Installation and Configuration
+  hosts: agent-vm
+  become: yes
+  vars:
+    ollama_version: "0.10.0-rc2"
+    ollama_model: "gemma:3n-e2b"
+    ollama_data_dir: "/var/lib/ollama"
+    ollama_host: "127.0.0.1:11434"
+    ollama_log_dir: "/var/log/ollama"
+    # Performance optimization parameters
+    ollama_num_parallel: 4
+    ollama_max_loaded_models: 2
+    ollama_num_ctx: 8192
+    ollama_batch_size: 512
+    ollama_gpu_layers: -1  # -1 for auto-detect, 0 to disable GPU
+    # Memory optimization
+    ollama_memory_limit: "8G"
+    ollama_swap_limit: "4G"
+
+  tasks:
+    - name: Detect GPU availability
+      shell: |
+        if command -v nvidia-smi &> /dev/null; then
+          nvidia-smi -L | wc -l
+        else
+          echo "0"
+        fi
+      register: gpu_count
+      changed_when: false
+      ignore_errors: true
+
+    - name: Set GPU-specific variables
+      set_fact:
+        ollama_gpu_enabled: "{{ gpu_count.stdout | int > 0 }}"
+        ollama_gpu_count: "{{ gpu_count.stdout | int }}"
+
+    - name: Install system dependencies
+      package:
+        name:
+          - curl
+          - jq
+          - python3-psutil
+        state: present
+
+    - name: Create ollama user
+      user:
+        name: ollama
+        system: yes
+        shell: /bin/false
+        home: "{{ ollama_data_dir }}"
+        create_home: yes
+        state: present
+        groups: "{{ 'video' if ollama_gpu_enabled else omit }}"
+
+    - name: Download Ollama binary
+      get_url:
+        url: "https://github.com/ollama/ollama/releases/download/v{{ ollama_version }}/ollama-linux-amd64"
+        dest: /usr/local/bin/ollama
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Create Ollama directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: ollama
+        group: ollama
+        mode: '0755'
+      loop:
+        - "{{ ollama_data_dir }}"
+        - "{{ ollama_data_dir }}/models"
+        - "{{ ollama_data_dir }}/cache"
+        - "{{ ollama_log_dir }}"
+        - /etc/ollama
+        - /etc/ollama/scripts
+
+    - name: Create Ollama environment configuration
+      copy:
+        content: |
+          # Basic configuration
+          OLLAMA_HOST={{ ollama_host }}
+          OLLAMA_MODELS={{ ollama_data_dir }}/models
+          OLLAMA_CACHE={{ ollama_data_dir }}/cache
+          OLLAMA_KEEP_ALIVE=24h
+          
+          # Performance optimization
+          OLLAMA_MAX_LOADED_MODELS={{ ollama_max_loaded_models }}
+          OLLAMA_NUM_PARALLEL={{ ollama_num_parallel }}
+          OLLAMA_FLASH_ATTENTION=1
+          OLLAMA_BATCH_SIZE={{ ollama_batch_size }}
+          OLLAMA_NUM_CTX={{ ollama_num_ctx }}
+          
+          # Memory optimization
+          OLLAMA_MEMORY_LIMIT={{ ollama_memory_limit }}
+          OLLAMA_USE_MMAP=1
+          OLLAMA_USE_MLOCK=0
+          
+          # GPU configuration
+          {% if ollama_gpu_enabled %}
+          OLLAMA_GPU_LAYERS={{ ollama_gpu_layers }}
+          CUDA_VISIBLE_DEVICES=0
+          {% else %}
+          OLLAMA_GPU_LAYERS=0
+          {% endif %}
+          
+          # Logging
+          OLLAMA_LOG_LEVEL=info
+          OLLAMA_LOG_FILE={{ ollama_log_dir }}/ollama.log
+          OLLAMA_LOG_JSON=1
+        dest: /etc/ollama/environment
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create health check script
+      copy:
+        content: |
+          #!/bin/bash
+          set -e
+          
+          # Check if service is running
+          if ! systemctl is-active --quiet ollama; then
+              echo "ERROR: Ollama service is not running"
+              exit 1
+          fi
+          
+          # Check API health
+          response=$(curl -s -f -m 5 "http://{{ ollama_host }}/api/version" || echo "FAIL")
+          if [[ "$response" == "FAIL" ]]; then
+              echo "ERROR: Ollama API is not responding"
+              exit 1
+          fi
+          
+          # Check memory usage
+          mem_usage=$(ps aux | grep ollama | grep -v grep | awk '{print $4}' | head -1)
+          if (( $(echo "$mem_usage > 80" | bc -l) )); then
+              echo "WARNING: High memory usage: ${mem_usage}%"
+          fi
+          
+          # Check model availability
+          models=$(curl -s "http://{{ ollama_host }}/api/tags" | jq -r '.models[].name' 2>/dev/null || echo "")
+          if [[ -z "$models" ]]; then
+              echo "WARNING: No models loaded"
+          fi
+          
+          echo "OK: Ollama is healthy"
+          exit 0
+        dest: /etc/ollama/scripts/health-check.sh
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Create Ollama systemd service
+      copy:
+        content: |
+          [Unit]
+          Description=Ollama LLM Inference Service
+          Documentation=https://ollama.ai/docs
+          After=network-online.target
+          Wants=network-online.target
+          {% if ollama_gpu_enabled %}
+          After=nvidia-persistenced.service
+          Wants=nvidia-persistenced.service
+          {% endif %}
+          
+          [Service]
+          Type=simple
+          User=ollama
+          Group=ollama
+          WorkingDirectory={{ ollama_data_dir }}
+          ExecStartPre=/etc/ollama/scripts/health-check.sh
+          ExecStart=/usr/local/bin/ollama serve
+          ExecReload=/bin/kill -HUP $MAINPID
+          Restart=always
+          RestartSec=10
+          StartLimitInterval=350
+          StartLimitBurst=10
+          Environment="HOME={{ ollama_data_dir }}"
+          EnvironmentFile=/etc/ollama/environment
+          
+          # Logging
+          StandardOutput=append:{{ ollama_log_dir }}/ollama.log
+          StandardError=append:{{ ollama_log_dir }}/ollama-error.log
+          
+          # Memory management
+          MemoryLimit={{ ollama_memory_limit }}
+          MemorySwapMax={{ ollama_swap_limit }}
+          MemoryAccounting=true
+          
+          # CPU management
+          CPUAccounting=true
+          CPUWeight=100
+          CPUQuota=80%
+          
+          # IO management
+          IOAccounting=true
+          IOWeight=100
+          
+          # Security hardening
+          NoNewPrivileges=true
+          PrivateTmp=true
+          ProtectSystem=strict
+          ProtectHome=true
+          ReadWritePaths={{ ollama_data_dir }} {{ ollama_log_dir }}
+          ProtectKernelTunables=true
+          ProtectKernelModules=true
+          ProtectControlGroups=true
+          RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+          RestrictNamespaces=true
+          LockPersonality=true
+          MemoryDenyWriteExecute=true
+          RestrictRealtime=true
+          RestrictSUIDSGID=true
+          RemoveIPC=true
+          PrivateMounts=true
+          SystemCallFilter=@system-service
+          SystemCallErrorNumber=EPERM
+          
+          # Resource limits
+          LimitNOFILE=65536
+          LimitNPROC=4096
+          LimitCORE=0
+          
+          # GPU access if available
+          {% if ollama_gpu_enabled %}
+          DeviceAllow=/dev/nvidia* rw
+          DeviceAllow=/dev/nvidiactl rw
+          DeviceAllow=/dev/nvidia-uvm rw
+          {% endif %}
+          
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/ollama.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Enable and start Ollama service
+      systemd:
+        name: ollama
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Wait for Ollama to be ready
+      uri:
+        url: "http://{{ ollama_host }}/api/version"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 30
+      delay: 2
+
+    - name: Create model pull script with progress monitoring
+      copy:
+        content: |
+          #!/bin/bash
+          set -e
+          
+          MODEL="{{ ollama_model }}"
+          OLLAMA_HOST="{{ ollama_host }}"
+          export OLLAMA_HOST
+          
+          echo "Starting pull of model: $MODEL (approximately 2.6 GB)"
+          echo "This may take several minutes depending on network speed..."
+          
+          # Pull with progress tracking
+          /usr/local/bin/ollama pull "$MODEL" 2>&1 | while IFS= read -r line; do
+              echo "$(date '+%Y-%m-%d %H:%M:%S') - $line"
+              # Extract percentage if present
+              if [[ "$line" =~ ([0-9]+)% ]]; then
+                  percent="${BASH_REMATCH[1]}"
+                  echo "Progress: $percent%"
+              fi
+          done
+          
+          echo "Model pull completed successfully"
+        dest: /tmp/ollama-pull-model.sh
+        mode: '0755'
+
+    - name: Pull Gemma 3N model with progress monitoring
+      shell: /tmp/ollama-pull-model.sh
+      register: pull_result
+      changed_when: "'completed successfully' in pull_result.stdout"
+      retries: 3
+      delay: 10
+      async: 1800  # 30 minutes timeout
+      poll: 10
+
+    - name: Verify model is loaded
+      shell: |
+        export OLLAMA_HOST={{ ollama_host }}
+        /usr/local/bin/ollama list | grep -q "{{ ollama_model }}"
+      register: model_check
+      changed_when: false
+      failed_when: model_check.rc != 0
+
+    - name: Create optimized model configuration
+      copy:
+        content: |
+          {
+            "model": "{{ ollama_model }}",
+            "parameters": {
+              "temperature": 0.7,
+              "top_p": 0.9,
+              "top_k": 40,
+              "repeat_penalty": 1.1,
+              "seed": -1,
+              "num_predict": 2048,
+              "num_ctx": {{ ollama_num_ctx }},
+              "stop": ["<|endoftext|>", "</s>", "<|im_end|>"]
+            },
+            "options": {
+              "numa": true,
+              "num_thread": {{ ansible_processor_vcpus | default(4) }},
+              "num_gpu": {{ ollama_gpu_count if ollama_gpu_enabled else 0 }},
+              "gpu_layers": {{ ollama_gpu_layers }},
+              "main_gpu": 0,
+              "low_vram": false,
+              "f16_kv": true,
+              "vocab_only": false,
+              "use_mmap": true,
+              "use_mlock": false,
+              "batch_size": {{ ollama_batch_size }},
+              "num_batch": {{ ollama_batch_size }}
+            },
+            "system": "You are a helpful AI assistant optimized for fast inference with the Gemma 3N model."
+          }
+        dest: "{{ ollama_data_dir }}/model_config.json"
+        owner: ollama
+        group: ollama
+        mode: '0644'
+
+    - name: Set up log rotation for Ollama
+      copy:
+        content: |
+          {{ ollama_log_dir }}/*.log {
+              daily
+              rotate 14
+              compress
+              delaycompress
+              missingok
+              notifempty
+              create 0640 ollama ollama
+              maxsize 100M
+              postrotate
+                  # Send SIGHUP to reload configuration
+                  systemctl reload ollama >/dev/null 2>&1 || true
+                  # Clean up old cache files
+                  find {{ ollama_data_dir }}/cache -type f -mtime +7 -delete >/dev/null 2>&1 || true
+              endscript
+          }
+        dest: /etc/logrotate.d/ollama
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create monitoring endpoint script
+      copy:
+        content: |
+          #!/bin/bash
+          # Ollama monitoring endpoint script
+          
+          OLLAMA_HOST="{{ ollama_host }}"
+          
+          # Function to get metrics
+          get_metrics() {
+              # Basic health check
+              health_status="down"
+              if curl -s -f "http://${OLLAMA_HOST}/api/version" >/dev/null 2>&1; then
+                  health_status="up"
+              fi
+              
+              # Get loaded models
+              models=$(curl -s "http://${OLLAMA_HOST}/api/tags" 2>/dev/null | jq -r '.models | length' || echo 0)
+              
+              # Get system metrics
+              if command -v nvidia-smi &>/dev/null && [[ {{ ollama_gpu_enabled }} == "True" ]]; then
+                  gpu_usage=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | head -1)
+                  gpu_memory=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | head -1)
+              else
+                  gpu_usage=0
+                  gpu_memory=0
+              fi
+              
+              # Get process metrics
+              if pgrep -x ollama >/dev/null; then
+                  cpu_usage=$(ps aux | grep ollama | grep -v grep | awk '{print $3}' | head -1)
+                  mem_usage=$(ps aux | grep ollama | grep -v grep | awk '{print $4}' | head -1)
+              else
+                  cpu_usage=0
+                  mem_usage=0
+              fi
+              
+              # Output metrics in Prometheus format
+              cat <<EOF
+# HELP ollama_up Ollama service status (1 = up, 0 = down)
+# TYPE ollama_up gauge
+ollama_up $([ "$health_status" = "up" ] && echo 1 || echo 0)
+
+# HELP ollama_models_loaded Number of models currently loaded
+# TYPE ollama_models_loaded gauge
+ollama_models_loaded $models
+
+# HELP ollama_cpu_usage_percent CPU usage percentage
+# TYPE ollama_cpu_usage_percent gauge
+ollama_cpu_usage_percent ${cpu_usage:-0}
+
+# HELP ollama_memory_usage_percent Memory usage percentage
+# TYPE ollama_memory_usage_percent gauge
+ollama_memory_usage_percent ${mem_usage:-0}
+
+# HELP ollama_gpu_usage_percent GPU usage percentage
+# TYPE ollama_gpu_usage_percent gauge
+ollama_gpu_usage_percent ${gpu_usage:-0}
+
+# HELP ollama_gpu_memory_mb GPU memory usage in MB
+# TYPE ollama_gpu_memory_mb gauge
+ollama_gpu_memory_mb ${gpu_memory:-0}
+EOF
+          }
+          
+          # Run based on argument
+          case "$1" in
+              metrics)
+                  get_metrics
+                  ;;
+              health)
+                  /etc/ollama/scripts/health-check.sh
+                  ;;
+              *)
+                  echo "Usage: $0 {metrics|health}"
+                  exit 1
+                  ;;
+          esac
+        dest: /etc/ollama/scripts/monitoring.sh
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Create systemd timer for health checks
+      copy:
+        content: |
+          [Unit]
+          Description=Ollama Health Check Timer
+          Requires=ollama.service
+          
+          [Timer]
+          OnBootSec=5min
+          OnUnitActiveSec=1min
+          
+          [Install]
+          WantedBy=timers.target
+        dest: /etc/systemd/system/ollama-health.timer
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create systemd service for health checks
+      copy:
+        content: |
+          [Unit]
+          Description=Ollama Health Check
+          After=ollama.service
+          
+          [Service]
+          Type=oneshot
+          ExecStart=/etc/ollama/scripts/health-check.sh
+          StandardOutput=journal
+          StandardError=journal
+        dest: /etc/systemd/system/ollama-health.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Enable health check timer
+      systemd:
+        name: ollama-health.timer
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Test Ollama inference performance
+      shell: |
+        export OLLAMA_HOST={{ ollama_host }}
+        echo "Testing inference performance..."
+        start_time=$(date +%s.%N)
+        response=$(/usr/local/bin/ollama run {{ ollama_model }} "Hello, this is a test. Please respond with 'OK'." --verbose 2>&1)
+        end_time=$(date +%s.%N)
+        duration=$(echo "$end_time - $start_time" | bc)
+        echo "Inference completed in $duration seconds"
+        echo "Response: $response"
+      register: perf_test
+      changed_when: false
+
+    - name: Display installation summary
+      debug:
+        msg:
+          - "Ollama {{ ollama_version }} installation completed"
+          - "Model: {{ ollama_model }} (2.6 GB)"
+          - "API endpoint: http://{{ ollama_host }}"
+          - "GPU enabled: {{ ollama_gpu_enabled }}"
+          - "GPU count: {{ ollama_gpu_count }}"
+          - "Health check: /etc/ollama/scripts/health-check.sh"
+          - "Metrics endpoint: /etc/ollama/scripts/monitoring.sh metrics"
+          - "Logs: {{ ollama_log_dir }}/ollama.log"
+          - "Performance test duration: {{ perf_test.stdout_lines[-2] | default('N/A') }}"

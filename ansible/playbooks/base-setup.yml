@@ -1,0 +1,133 @@
+---
+- name: Base System Setup for Gemma Agent VM
+  hosts: agent-vm
+  become: yes
+  vars:
+    base_packages:
+      - openssh-server
+      - curl
+      - git
+      - ca-certificates
+      - build-essential
+      - unzip
+      - vim
+      - htop
+      - net-tools
+      - software-properties-common
+      - apt-transport-https
+      - gnupg
+      - lsb-release
+      - python3-pip
+      - python3-venv
+      - libssl-dev
+      - libffi-dev
+      - python3-dev
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+
+    - name: Install base packages
+      apt:
+        name: "{{ base_packages }}"
+        state: present
+
+    - name: Configure SSH hardening
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      loop:
+        - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
+        - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+        - { regexp: '^#?PubkeyAuthentication', line: 'PubkeyAuthentication yes' }
+        - { regexp: '^#?ChallengeResponseAuthentication', line: 'ChallengeResponseAuthentication no' }
+        - { regexp: '^#?X11Forwarding', line: 'X11Forwarding no' }
+        - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
+        - { regexp: '^#?ClientAliveInterval', line: 'ClientAliveInterval 300' }
+        - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax 2' }
+      notify: restart sshd
+
+    - name: Configure UFW firewall
+      ufw:
+        rule: "{{ item.rule }}"
+        port: "{{ item.port }}"
+        proto: "{{ item.proto | default('tcp') }}"
+        comment: "{{ item.comment }}"
+      loop:
+        - { rule: 'allow', port: '22', comment: 'SSH' }
+        - { rule: 'allow', port: '8000', comment: 'FastAPI' }
+        - { rule: 'allow', port: '3000', comment: 'Grafana' }
+        - { rule: 'allow', port: '9100', comment: 'Node Exporter' }
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+    - name: Set timezone to UTC
+      timezone:
+        name: UTC
+
+    - name: Configure system limits
+      lineinfile:
+        path: /etc/security/limits.conf
+        line: "{{ item }}"
+        state: present
+      loop:
+        - "* soft nofile 65536"
+        - "* hard nofile 65536"
+        - "* soft nproc 32768"
+        - "* hard nproc 32768"
+
+    - name: Configure sysctl for performance
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { name: 'net.core.somaxconn', value: '65536' }
+        - { name: 'net.ipv4.tcp_max_syn_backlog', value: '65536' }
+        - { name: 'net.ipv4.ip_local_port_range', value: '1024 65535' }
+        - { name: 'net.ipv4.tcp_tw_reuse', value: '1' }
+        - { name: 'vm.swappiness', value: '10' }
+
+    - name: Create agent user
+      user:
+        name: agent
+        groups: sudo
+        shell: /bin/bash
+        create_home: yes
+        state: present
+
+    - name: Create necessary directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: agent
+        group: agent
+        mode: '0755'
+      loop:
+        - /home/agent/logs
+        - /home/agent/data
+        - /home/agent/models
+        - /home/agent/scripts
+        - /home/agent/.config
+
+  handlers:
+    - name: restart sshd
+      systemd:
+        name: sshd
+        state: restarted
+        daemon_reload: yes

@@ -1,0 +1,170 @@
+template_rapport:
+  version: "2.0"
+  session: "audit_session_20250731_233132"
+  format: "structured_markdown"
+  
+  structure_obligatoire:
+    header:
+      - "titre_audit"
+      - "agent_executeur"
+      - "timestamp_debut"
+      - "timestamp_fin"
+      - "durée_execution"
+      - "scope_analysé"
+      
+    executive_summary:
+      - "statut_global" # [CONFORME|ATTENTION|CRITIQUE]
+      - "score_global" # /100
+      - "findings_count" # {critiques: X, importants: Y, mineurs: Z}
+      - "actions_immédiates_count"
+      - "résumé_3_points_clés"
+      
+    analyse_technique:
+      sections:
+        - "contexte_et_scope"
+        - "méthodologie_audit"
+        - "découvertes_détaillées"
+        - "métriques_quantitatives"
+        - "évaluation_qualitative"
+        
+    findings:
+      format: "structured_findings"
+      categories:
+        critiques:
+          - "id_finding"
+          - "titre"
+          - "description_impact"
+          - "evidence" # code snippets, metrics
+          - "risque_business"
+          - "recommandation_immédiate"
+          - "effort_estimation" # [LOW|MEDIUM|HIGH]
+          
+        importants:
+          - "même_structure_que_critiques"
+          
+        mineurs:
+          - "même_structure_simplifiée"
+          
+    recommandations:
+      immédiates:
+        - "action_description"
+        - "priorité" # [P0|P1|P2]
+        - "effort_estimé" # heures/jours
+        - "impact_attendu"
+        - "dependencies"
+        
+      moyen_terme:
+        - "même_structure"
+        
+      long_terme:
+        - "même_structure"
+        
+    plan_action:
+      - "roadmap_timeline"
+      - "ressources_requises"
+      - "success_criteria"
+      - "monitoring_points"
+      
+    métriques:
+      quantitatives:
+        - "files_analyzed_count"
+        - "lines_of_code_covered"
+        - "test_coverage_percentage"
+        - "security_score"
+        - "performance_benchmarks"
+        
+      qualitatives:
+        - "architecture_quality_score"
+        - "maintainability_index"
+        - "security_posture"
+        - "scalability_readiness"
+        
+    annexes:
+      - "detailed_evidence"
+      - "code_snippets"
+      - "configuration_samples"
+      - "references_externes"
+      
+  standards_qualité:
+    rapport_length: "2000-4000 words"
+    evidence_requirement: "chaque_finding_avec_preuve"
+    actionnable: "toutes_recommandations_spécifiques"
+    timeline: "estimations_réalistes"
+    
+  format_markdown:
+    structure: |
+      # 🔍 RAPPORT D'AUDIT - [DOMAIN]
+      **Agent**: [agent_name]  
+      **Session**: audit_session_20250731_233132  
+      **Début**: [timestamp]  
+      **Fin**: [timestamp]  
+      **Durée**: [duration]  
+      
+      ---
+      
+      ## 📊 RÉSUMÉ EXÉCUTIF
+      
+      **Statut Global**: [CONFORME|ATTENTION|CRITIQUE]  
+      **Score**: [X]/100  
+      **Findings**: [N] critiques, [M] importants, [P] mineurs  
+      **Actions Immédiates**: [K] requises  
+      
+      ### Points Clés
+      1. [Point critique 1]
+      2. [Point critique 2]  
+      3. [Point critique 3]
+      
+      ---
+      
+      ## 🔧 ANALYSE TECHNIQUE
+      
+      ### Scope & Méthodologie
+      [Description du périmètre analysé et méthodes utilisées]
+      
+      ### Découvertes Détaillées
+      [Analyse approfondie des composants audités]
+      
+      ---
+      
+      ## 🚨 FINDINGS
+      
+      ### Critiques (Résolution Immédiate)
+      [Liste structurée des problèmes critiques]
+      
+      ### Importants (Résolution Court Terme)
+      [Liste des problèmes importants]
+      
+      ### Mineurs (Amélioration Continue)
+      [Liste des améliorations suggérées]
+      
+      ---
+      
+      ## 💡 RECOMMANDATIONS
+      
+      ### Actions Immédiates (0-7 jours)
+      [Liste priorisée des actions urgentes]
+      
+      ### Moyen Terme (1-4 semaines)
+      [Améliorations importantes]
+      
+      ### Long Terme (1-3 mois)
+      [Évolutions strategiques]
+      
+      ---
+      
+      ## 📈 PLAN D'ACTION
+      
+      [Roadmap détaillée avec timeline et ressources]
+      
+      ---
+      
+      ## 📊 MÉTRIQUES & ANNEXES
+      
+      [Données quantitatives et références]
+      
+  guidelines_rédaction:
+    ton: "professionnel_technique"
+    précision: "maximum_avec_exemples_code"
+    actionnable: "chaque_recommandation_spécifique"
+    evidence_based: "findings_avec_preuves_tangibles"
+    time_bounded: "estimations_effort_réalistes"

@@ -1,0 +1,135 @@
+ordre:
+  id: "AUDIT-DEVELOPMENT-002"
+  timestamp: "2025-07-31T23:31:32Z"
+  session: "audit_session_20250731_233132"
+  de: "agent-orchestrator"
+  pour: ["python-type-guardian", "test-automator", "fastapi-async-architect"]
+  
+  mission:
+    type: "audit_development"
+    priorité: "HAUTE"
+    approche: "progressive_et_douce"
+    
+    scope_principal:
+      - "inference/ (API FastAPI principale)"
+      - "agent/ (logique contrôleur)"
+      - "core/ (domain models)"
+      - "plugins/ (outils et intégrations)"
+      - "tests/ (couverture et qualité)"
+      - "pyproject.toml (configuration Python)"
+      - ".pre-commit-config.yaml"
+      - "pytest.ini et .coveragerc"
+      
+    objectifs_spécifiques:
+      python_type_guardian:
+        - "Analyser conformité type hints Python 3.13"
+        - "Vérifier standards PEP 8 et formatage (black --line-length 88)"
+        - "Contrôler qualité du code et bonnes pratiques"
+        - "Examiner gestion des imports et dépendances"
+        - "Valider utilisation async/await patterns"
+        - "Audit gestion des exceptions et erreurs"
+        
+      test_automator:
+        - "Évaluer couverture tests actuelle vs objectif ≥90%"
+        - "Analyser qualité et structure des tests"
+        - "Contrôler configuration pytest et coverage"
+        - "Examiner tests unitaires vs intégration"
+        - "Vérifier mocking et fixtures"
+        - "Valider CI/CD pipeline de tests"
+        
+      fastapi_async_architect:
+        - "Audit architecture FastAPI et patterns async"
+        - "Analyser performance et scalabilité endpoints"
+        - "Contrôler gestion authentification JWT RS256"
+        - "Examiner middleware et dependencies"
+        - "Vérifier sérialisation/désérialisation Pydantic"
+        - "Valider logging et monitoring intégré"
+    
+  contexte_technique:
+    stack_actuel:
+      - "Python 3.13.5 avec type hints obligatoires"
+      - "FastAPI avec architecture hexagonale"
+      - "Authentification JWT RS256, TTL 30min"
+      - "Tests: PyTest + coverage ≥90%"
+      - "Formatage: Black 88 chars, Ruff linting"
+      - "Pre-commit hooks configurés"
+      
+    composants_identifiés:
+      api_layer:
+        - "inference/api.py (endpoints principaux)"
+        - "inference/app.py (application factory)"
+        - "api/ (si présent, adaptateurs API)"
+        
+      business_layer:
+        - "agent/ (contrôleurs et logique métier)"  
+        - "core/ (domain models et entités)"
+        
+      tools_layer:
+        - "plugins/ (browser_tool, intégrations externes)"
+        
+      tests_layer:
+        - "tests/ (unitaires et intégration)"
+        
+  risques_identifiés:
+    qualité_code:
+      - "Type hints manquants ou incorrects"
+      - "Violation standards PEP 8 et formatage"
+      - "Gestion d'erreurs insuffisante"
+      - "Code dupliqué entre modules"
+      
+    tests_coverage:
+      - "Couverture insuffisante (objectif ≥90%)"
+      - "Tests flaky ou non déterministes"
+      - "Manque tests d'intégration critiques"
+      - "Mocking inadéquat services externes"
+      
+    architecture_api:
+      - "Endpoints non sécurisés ou exposés"
+      - "Performance async non optimisée"
+      - "Sérialisation/validation données insuffisante"
+      - "Monitoring et observabilité manquants"
+  
+  focus_sécurité:
+    authentification:
+      - "JWT RS256 implémentation correcte"
+      - "Gestion expiration tokens (30min TTL)"
+      - "Validation et sanitisation inputs"
+      
+    api_security:
+      - "CORS configuration appropriée"
+      - "Rate limiting et protection DDoS"
+      - "Validation stricte schémas Pydantic"
+      - "Logging sécurisé (pas de données sensibles)"
+  
+  livrables_attendus:
+    format: "RAPPORT_STANDARD_v2"
+    métriques_quantitatives:
+      - "Pourcentage type hints coverage"
+      - "Score conformité PEP 8"
+      - "Couverture tests par module"
+      - "Nombre endpoints sécurisés vs total"
+      - "Performance benchmarks critiques"
+      
+    analyses_qualitatives:
+      - "Architecture patterns respect"
+      - "Code maintainability score"
+      - "Security posture assessment"
+      - "Async patterns effectiveness"
+      
+  contraintes:
+    durée: "35 minutes maximum" 
+    approche: "analyse_statique_prioritaire"
+    modifications: "aucune sans validation"
+    coordination: "rapports croisés entre agents"
+    
+  protocole_rapport:
+    deadline: "2025-07-31T23:55:00Z"
+    format_fichier: "rapports/RAPPORT_DEVELOPMENT_{agent}.md"
+    communication: "logs/development_audit.log"
+    consolidation: "system-architect synthèse finale"
+    
+  notes_orchestrateur: |
+    PRIORITÉ: La qualité du code Python est fondamentale pour la suite.
+    Focus particulier sur l'architecture FastAPI qui doit être exemplaire.
+    Coordination étroite requise entre les 3 agents pour éviter redondances.
+    Les métriques quantitatives sont essentielles pour tracking progrès.

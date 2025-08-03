@@ -1,0 +1,144 @@
+ordre:
+  id: "AUDIT-ML-AI-003"
+  timestamp: "2025-07-31T23:31:32Z"
+  session: "audit_session_20250731_233132"
+  de: "agent-orchestrator"
+  pour: ["llm-optimization-engineer", "mlops-pipeline-engineer", "observability-engineer"]
+  
+  mission:
+    type: "audit_ml_ai"
+    priorité: "CRITIQUE"
+    approche: "progressive_et_douce"
+    
+    scope_principal:
+      - "training/ (pipeline ML complet)"
+      - "models/ (gestion modèles et checkpoints)"
+      - "inference/ (intégration Ollama et GroupThink)"
+      - "scripts/ (orchestration et automation)"
+      - "monitoring/ (métriques ML si présent)"
+      
+    objectifs_spécifiques:
+      llm_optimization_engineer:
+        - "Analyser pipeline training QLora + XNet head"
+        - "Examiner optimisations mémoire GPU (RTX 3090/4090)"
+        - "Contrôler gestion cache modèles et checkpoints"
+        - "Vérifier implémentation GroupThink decoding (4 threads)"
+        - "Analyser intégration Ollama et performance"
+        - "Audit configuration hyperparamètres et LoRA"
+        
+      mlops_pipeline_engineer:
+        - "Évaluer pipeline MLOps end-to-end"
+        - "Analyser cycle: pre-train → deploy → log → fine-tune → redeploy"
+        - "Contrôler automation training et promotion modèles"
+        - "Examiner gestion versions et rollback (si error_rate > 5%)"
+        - "Vérifier synchronisation logs (rsync) et datasets"
+        - "Valider orchestration training/inference séparés"
+        
+      observability_engineer:
+        - "Audit monitoring training et performance ML"
+        - "Analyser logging structured et métriques business"
+        - "Contrôler tracing inference et latency (≤550ms first-token)"
+        - "Examiner alerting sur KPIs critiques (JSON accuracy ≥95%)"
+        - "Vérifier observabilité pipeline ML complet"
+        - "Valider dashboards et visualisations métriques"
+    
+  contexte_technique:
+    architecture_ml:
+      modèle_base: "Gemma 3N (4.5B params) + LoRA r=16 alpha=32"
+      optimisations: "XNet head, Step-Hint loss λ=0.3, GroupThink KL μ=0.1"
+      formats: "GGUF Q4_K_M pour inference, checkpoint PyTorch training"
+      hardware: "GPU training (RTX 3090 24GB), CPU inference (4 vCPU 8GB)"
+      
+    pipeline_actuel:
+      training_server: "GPU - QLoRA + XNet + Step-Hint + KL losses"
+      runtime_vm: "CPU - Ollama + Agent Controller + Tools (Playwright)"
+      sync_process: "rsync logs nightly, scp model promotion"
+      evaluation: "ToolBench eval split, target JSON accuracy ≥95%"
+      
+    kpis_critiques:
+      - "Tool-call JSON accuracy ≥95% (ToolBench)"
+      - "End-to-end task success ≥98% (10k runs)"
+      - "JSON parse errors <0.5% (24h rolling)"
+      - "First-token latency ≤550ms (CPU-VM)"
+      - "Ban/Block rate <1% (top 50 sites monthly)"
+      
+  risques_identifiés:
+    performance_ml:
+      - "Fuites mémoire GPU pendant training"
+      - "Cache modèles non optimisé ou corrumpu"
+      - "Latency inference dégradée (>550ms)"
+      - "Accuracy dégradation sous seuils critiques"
+      
+    pipeline_robustesse:
+      - "Échecs training non gérés proprement"
+      - "Rollback automatique non testé"
+      - "Sync logs/modèles interrompu"
+      - "Promotion modèles défaillants"
+      
+    observabilité:
+      - "Monitoring insuffisant métriques ML"
+      - "Alerting manquant sur KPIs critiques"
+      - "Tracing incomplet pipeline end-to-end"
+      - "Dashboards ML non opérationnels"
+  
+  focus_spécifiques:
+    groupthink_decoding:
+      - "Implémentation 4 threads concurrents"
+      - "KL divergence μ=0.1 entre threads"
+      - "Vote engine et consensus logic"
+      - "Performance vs single-thread baseline"
+      
+    security_ml:
+      - "Prompt injection detection/mitigation"
+      - "Model poisoning protection"
+      - "Data leakage prevention training"
+      - "Adversarial inputs handling"
+      
+    scalabilité:
+      - "Multi-VM runtime fleet readiness"
+      - "Horizontal scale-out patterns"
+      - "Load balancing intelligence"
+      - "Resource management automated"
+  
+  métriques_évaluation:
+    quantitatives:
+      - "GPU memory utilization peak/average"
+      - "Training throughput (tokens/sec)"
+      - "Inference latency P50/P95/P99"
+      - "Model accuracy scores actuels"
+      - "Pipeline success rate %"
+      - "Error recovery time moyens"
+      
+    qualitatives:
+      - "Code maintainability ML components"
+      - "Pipeline reliability assessment"
+      - "Monitoring coverage completeness"
+      - "Scalability architecture readiness"
+  
+  livrables_attendus:
+    format: "RAPPORT_STANDARD_v2"
+    sections_spécialisées:
+      - "ml_performance_analysis"
+      - "pipeline_robustesse_evaluation"
+      - "observability_coverage_audit"
+      - "recommandations_optimisation"
+      - "plan_amélioration_continue"
+      
+  contraintes:
+    durée: "40 minutes maximum"
+    approche: "analyse_deep_dive_technique"
+    modifications: "aucune sans validation explicite"
+    coordination: "sync étroit entre 3 agents spécialisés"
+    
+  protocole_rapport:
+    deadline: "2025-07-31T23:58:00Z"
+    format_fichier: "rapports/RAPPORT_ML_AI_{agent}.md"
+    communication: "logs/ml_ai_audit.log"
+    consolidation: "rapport_synthèse_ml_complet"
+    
+  notes_orchestrateur: |
+    MISSION CRITIQUE: Le pipeline ML est le cœur du système.
+    Focus absolu sur les KPIs de performance et fiabilité.
+    Attention particulière à GroupThink et Ollama integration.
+    Coordination essentielle - chaque agent couvre un aspect vital.
+    Préparer recommandations pour Sprint 2+ scaling.
