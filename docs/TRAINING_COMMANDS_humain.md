@@ -122,3 +122,47 @@ python models/scripts/merge_and_convert_lora.py \
 # Tester le modèle après import
 ollama run gemma-3n-hrm "Explain how to solve 25 + 17 step by step"
 ```
+
+## Entraînement HRM (Hierarchical Reasoning Model) avec Architecture Complète - NOUVEAU 04/08/2025
+```bash
+# HRM avec modules hiérarchiques H/L, convergence, gradient O(1) et supervision profonde
+# Configurations disponibles: gsm8k, code, agent, full, debug
+
+# 1. GSM8K - Raisonnement mathématique (2 epochs)
+python models/training/hrm/hrm_trainer.py \
+  --config gsm8k \
+  --num-epochs 2 \
+  --output-dir ./models/results/gemma-3n-hrm-gsm8k
+
+# 2. Code Generation - Python/SQL (2 epochs)  
+python models/training/hrm/hrm_trainer.py \
+  --config code \
+  --num-epochs 2 \
+  --output-dir ./models/results/gemma-3n-hrm-code
+
+# 3. Agent Linux - Navigation OS (2 epochs)
+python models/training/hrm/hrm_trainer.py \
+  --config agent \
+  --num-epochs 2 \
+  --output-dir ./models/results/gemma-3n-hrm-agent
+
+# 4. Configuration complète production (2 epochs)
+python models/training/hrm/hrm_trainer.py \
+  --config full \
+  --num-epochs 2 \
+  --batch-size 1 \
+  --learning-rate 2e-4
+
+# 5. Test rapide debug (100 steps)
+python models/training/hrm/hrm_trainer.py \
+  --config debug \
+  --output-dir ./models/results/gemma-3n-hrm-debug
+
+# NOTES IMPORTANTES HRM:
+# - Modules H/L avec LoRA ranks différents (L=32, H=64)
+# - Convergence hiérarchique: L converge en ~8-16 steps, H update après
+# - Gradient O(1) mémoire au lieu de O(T) - économise ~10GB sur RTX 3090
+# - Deep supervision avec 3 segments par défaut
+# - ACT (Adaptive Computation Time) activé pour efficacité
+# - Sortie en 3 formats: LoRA, 16bit merged, GGUF quantized
+```
