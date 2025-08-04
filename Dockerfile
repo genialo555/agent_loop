@@ -225,6 +225,157 @@ HEALTHCHECK --interval=60s --timeout=30s --start-period=120s --retries=3 \
 # Default training command - can be overridden
 CMD ["python", "training/qlora_finetune.py", "--data", "/app/datasets/processed", "--base", "/app/models/gguf/gemma_base.gguf"]
 
+# === STAGE 7: LaTeX Document Compilation Environment ===
+# DK002: Use pinned TeXLive base image for reproducible builds
+FROM texlive/texlive:TL2024-historic AS latex-builder
+
+# DK007: Configure LaTeX environment variables for optimal compilation
+ENV DEBIAN_FRONTEND=noninteractive \
+    TEXMFHOME=/opt/texmf \
+    TEXMFVAR=/tmp/texmf-var \
+    TEXMFCONFIG=/tmp/texmf-config \
+    PATH="/opt/texlive/bin:$PATH"
+
+# Install additional system dependencies for LaTeX compilation
+# DK006: Use BuildKit cache for efficient package management
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    curl \
+    wget \
+    git \
+    make \
+    pandoc \
+    librsvg2-bin \
+    pdf2svg \
+    poppler-utils \
+    imagemagick \
+    && rm -rf /var/lib/apt/lists/*
+
+# DK004: Create non-root user for LaTeX compilation security
+RUN groupadd -r latex && useradd -r -g latex -d /app -s /bin/bash latex
+
+# Create Python virtual environment for LaTeX monitoring
+RUN python3 -m venv /opt/latex-venv
+ENV PATH="/opt/latex-venv/bin:$PATH"
+
+# Install LaTeX monitoring dependencies
+COPY docs/latex/requirements.txt /tmp/latex-requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip && \
+    pip install --no-compile -r /tmp/latex-requirements.txt
+
+# Create directory structure with proper permissions
+WORKDIR /app
+RUN mkdir -p /app/docs/latex/{build,sources,figures,bibliography} \
+    /app/logs/latex \
+    /app/tmp && \
+    chown -R latex:latex /app
+
+# Copy LaTeX compilation utilities
+COPY --chown=latex:latex docs/latex/ /app/docs/latex/
+COPY --chown=latex:latex monitoring/prometheus/ /app/monitoring/prometheus/
+
+# === STAGE 8: LaTeX Runtime Environment ===
+FROM texlive/texlive:TL2024-historic AS latex-runtime
+
+# DK007: Configure runtime environment
+ENV DEBIAN_FRONTEND=noninteractive \
+    TEXMFHOME=/opt/texmf \
+    TEXMFVAR=/tmp/texmf-var \
+    TEXMFCONFIG=/tmp/texmf-config \
+    PATH="/opt/texlive/bin:$PATH" \
+    LATEX_BUILD_MODE=production \
+    LATEX_MONITORING_ENABLED=true \
+    PROMETHEUS_PUSHGATEWAY_URL=http://pushgateway:9091
+
+# Install minimal runtime dependencies
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    curl \
+    make \
+    pandoc \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# DK004: Create non-root user for security
+RUN groupadd -r latex && useradd -r -g latex -d /app -s /bin/bash latex
+
+# Copy LaTeX environment from builder
+COPY --from=latex-builder /opt/latex-venv /opt/latex-venv
+ENV PATH="/opt/latex-venv/bin:$PATH"
+
+# Create app structure with proper permissions
+WORKDIR /app
+RUN mkdir -p /app/docs/latex/{build,sources,figures,bibliography} \
+    /app/logs/latex \
+    /app/output && \
+    chown -R latex:latex /app
+
+# Copy LaTeX compilation setup
+COPY --from=latex-builder --chown=latex:latex /app/docs/latex/ /app/docs/latex/
+COPY --from=latex-builder --chown=latex:latex /app/monitoring/ /app/monitoring/
+
+# Switch to non-root user
+USER latex
+
+# Health check for LaTeX compilation service
+HEALTHCHECK --interval=60s --timeout=30s --start-period=30s --retries=3 \
+    CMD cd /app/docs/latex && make info > /dev/null || exit 1
+
+# Expose monitoring port for Prometheus metrics
+EXPOSE 9092
+
+# Set working directory for LaTeX operations
+WORKDIR /app/docs/latex
+
+# Default command for LaTeX compilation service
+CMD ["make", "hrm-paper-monitored"]
+
+# === STAGE 9: LaTeX Development Environment ===
+FROM latex-runtime AS latex-dev
+
+# Switch back to root for installing dev tools
+USER root
+
+# Install development dependencies
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    vim \
+    nano \
+    htop \
+    tree \
+    git \
+    inotify-tools \
+    texlive-latex-extra \
+    texlive-fonts-extra \
+    texlive-publishers \
+    texlive-science \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install additional Python dev dependencies
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install jupyter jupyterlab ipython watchdog
+
+# Switch back to latex user
+USER latex
+
+# Override environment for development
+ENV LATEX_BUILD_MODE=development \
+    LATEX_WATCH_MODE=true
+
+# Expose Jupyter port for interactive development
+EXPOSE 8889
+
+# Development command with file watching
+CMD ["sh", "-c", "make setup && make watch"]
+
 # === Production optimizations notes ===
 # 1. Multi-stage build reduces final image size by ~60%
 # 2. BuildKit cache mounts speed up rebuilds significantly
@@ -233,3 +384,6 @@ CMD ["python", "training/qlora_finetune.py", "--data", "/app/datasets/processed"
 # 5. Separate development stage for local development workflow
 # 6. GPU training stages use NVIDIA CUDA base images with optimized caching
 # 7. Training environment isolated from production runtime
+# 8. LaTeX compilation uses TeXLive base with comprehensive package support
+# 9. LaTeX monitoring integrated with Prometheus for observability
+# 10. Document compilation optimized with layer caching and dependency management

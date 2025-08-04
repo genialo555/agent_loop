@@ -1,0 +1,138 @@
+groups:
+  - name: latex_slo_rules
+    interval: 30s
+    rules:
+      # SLI Recording Rules for LaTeX Compilation
+      - record: slo:latex_build_success_rate:5m
+        expr: |
+          (
+            sum(rate(latex_build_success_total[5m])) by (document) /
+            (sum(rate(latex_build_success_total[5m])) by (document) + 
+             sum(rate(latex_build_failure_total[5m])) by (document))
+          ) or vector(1)
+      
+      - record: slo:latex_build_duration_p95:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(latex_build_duration_seconds_bucket[5m])) by (le, document, stage)
+          )
+      
+      - record: slo:latex_build_duration_p99:5m
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(latex_build_duration_seconds_bucket[5m])) by (le, document, stage)
+          )
+      
+      # Error Budget Tracking
+      - record: slo:latex_error_budget_remaining:24h
+        expr: |
+          (
+            1 - (
+              sum(increase(latex_build_failure_total[24h])) /
+              (sum(increase(latex_build_success_total[24h])) + 
+               sum(increase(latex_build_failure_total[24h])))
+            )
+          ) * 100
+
+  - name: latex_alerts
+    rules:
+      # Critical: LaTeX compilation completely failing
+      - alert: LaTeXCompilationDown
+        expr: |
+          (
+            sum(rate(latex_build_failure_total[5m])) /
+            (sum(rate(latex_build_success_total[5m])) + sum(rate(latex_build_failure_total[5m])))
+          ) > 0.5
+        for: 2m
+        labels:
+          severity: critical
+          component: documentation
+          slo: availability
+        annotations:
+          summary: "LaTeX compilation failure rate is critically high"
+          description: "{{ $value | humanizePercentage }} of LaTeX builds are failing (threshold: 50%)"
+          runbook_url: "https://github.com/your-org/agent-loop/wiki/LaTeX-Troubleshooting"
+      
+      # Warning: Slow compilation times
+      - alert: LaTeXCompilationSlow
+        expr: slo:latex_build_duration_p95:5m{stage="compilation"} > 120
+        for: 5m
+        labels:
+          severity: warning
+          component: documentation
+          slo: latency
+        annotations:
+          summary: "LaTeX compilation is taking too long"
+          description: "95th percentile compilation time is {{ $value }}s for {{ $labels.document }} (threshold: 120s)"
+          runbook_url: "https://github.com/your-org/agent-loop/wiki/LaTeX-Performance"
+      
+      # Warning: High error/warning rate in LaTeX output
+      - alert: LaTeXHighErrorRate
+        expr: rate(latex_errors_total[10m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          component: documentation
+        annotations:
+          summary: "High LaTeX error rate detected"
+          description: "{{ $value }} LaTeX errors per second for {{ $labels.document }} (error_type: {{ $labels.error_type }})"
+      
+      # Info: Many LaTeX warnings (quality issue)
+      - alert: LaTeXHighWarningRate
+        expr: rate(latex_warnings_total[10m]) > 1
+        for: 5m
+        labels:
+          severity: info
+          component: documentation
+        annotations:
+          summary: "High LaTeX warning rate detected"
+          description: "{{ $value }} LaTeX warnings per second for {{ $labels.document }} (warning_type: {{ $labels.warning_type }})"
+      
+      # Warning: Bibliography issues
+      - alert: LaTeXBibliographyIssues
+        expr: |
+          (latex_bibtex_references_total == 0) and 
+          (rate(latex_warnings_total{warning_type="citation_undefined"}[5m]) > 0)
+        for: 2m
+        labels:
+          severity: warning
+          component: documentation
+        annotations:
+          summary: "LaTeX bibliography processing issues"
+          description: "Document {{ $labels.document }} has undefined citations but no bibliography references"
+      
+      # Critical: Output file not generated
+      - alert: LaTeXNoOutputGenerated
+        expr: |
+          (increase(latex_build_success_total[5m]) > 0) and 
+          (latex_pages_generated_total == 0)
+        for: 1m
+        labels:
+          severity: critical
+          component: documentation
+        annotations:
+          summary: "LaTeX build succeeded but no output generated"
+          description: "Document {{ $labels.document }} build reported success but no pages were generated"
+      
+      # Warning: Large output files (possible issue)
+      - alert: LaTeXOutputTooLarge
+        expr: latex_output_file_size_bytes > 50000000  # 50MB
+        for: 1m
+        labels:
+          severity: warning
+          component: documentation
+        annotations:
+          summary: "LaTeX output file is unusually large"
+          description: "Document {{ $labels.document }} generated {{ $value | humanizeBytes }} PDF (threshold: 50MB)"
+      
+      # Info: Error budget consumption
+      - alert: LaTeXErrorBudgetLow
+        expr: slo:latex_error_budget_remaining:24h < 20
+        for: 10m
+        labels:
+          severity: info
+          component: documentation
+          slo: error_budget
+        annotations:
+          summary: "LaTeX error budget is low"
+          description: "Only {{ $value }}% error budget remaining for the last 24 hours"

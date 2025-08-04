@@ -3,6 +3,7 @@ global:
   evaluation_interval: 15s
 
 rule_files:
+  - "rules/latex_slo.yml"
   # - "first_rules.yml"
   # - "second_rules.yml"
 
@@ -29,6 +30,15 @@ scrape_configs:
     scrape_timeout: 10s
     # Ollama might not expose Prometheus metrics by default
     # This is for future compatibility
+    
+  # LaTeX documentation build monitoring
+  - job_name: 'latex-builds'
+    static_configs:
+      - targets: ['localhost:9091']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    # Only scrape when builds are active
     
   # System metrics with node_exporter (can be added later)
   # - job_name: 'node'

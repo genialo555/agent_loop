@@ -2,7 +2,7 @@
 # MLOps Pipeline Makefile - Agent Loop Project
 # ============================================================================
 
-.PHONY: help install lint format test clean build deploy monitoring
+.PHONY: help install lint format test clean build deploy monitoring docs-latex docs-setup docs-clean
 .DEFAULT_GOAL := help
 
 # Variables
@@ -405,7 +405,27 @@ docs: ## Generate documentation
 	@echo "$(YELLOW)→ Architecture overview available in docs/$(NC)"
 	@echo "$(YELLOW)→ API documentation: http://localhost:8000/docs$(NC)"
 	@echo "$(YELLOW)→ Monitoring dashboards: http://localhost:3000$(NC)"
+	@echo "$(YELLOW)→ LaTeX documentation: make docs-latex$(NC)"
 	@echo "$(GREEN)[SUCCESS]$(NC) Documentation links provided!"
+
+# ============================================================================
+# LaTeX Documentation
+# ============================================================================
+
+docs-latex: ## Compile LaTeX documentation
+	@echo "$(BLUE)[DOCS]$(NC) Compiling LaTeX research papers..."
+	@cd docs/latex && make all
+	@echo "$(GREEN)[SUCCESS]$(NC) LaTeX documentation compiled!"
+
+docs-setup: ## Setup LaTeX documentation environment  
+	@echo "$(BLUE)[DOCS]$(NC) Setting up LaTeX environment..."
+	@cd docs/latex && make setup
+	@echo "$(GREEN)[SUCCESS]$(NC) LaTeX environment ready!"
+
+docs-clean: ## Clean LaTeX build files
+	@echo "$(BLUE)[DOCS]$(NC) Cleaning LaTeX build files..."
+	@cd docs/latex && make clean
+	@echo "$(GREEN)[SUCCESS]$(NC) LaTeX cleanup completed!"
 
 # ============================================================================
 # Project Information

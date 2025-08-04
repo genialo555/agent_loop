@@ -1,0 +1,274 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "LaTeX Documentation Pipeline",
+    "tags": ["latex", "documentation", "observability"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Build Success Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "slo:latex_build_success_rate:5m * 100",
+            "legendFormat": "Success Rate %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 90},
+                {"color": "green", "value": 95}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Build Duration P95",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "slo:latex_build_duration_p95:5m{stage=\"compilation\"}",
+            "legendFormat": "P95 Duration",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 60},
+                {"color": "red", "value": 120}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Build Rate by Document",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(latex_build_success_total[5m])) by (document)",
+            "legendFormat": "{{ document }} - Success",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(latex_build_failure_total[5m])) by (document)",
+            "legendFormat": "{{ document }} - Failure",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Builds per second",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 9, "w": 24, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Compilation Duration by Stage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(latex_build_duration_seconds_bucket[5m])) by (le, stage))",
+            "legendFormat": "P50 - {{ stage }}",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(latex_build_duration_seconds_bucket[5m])) by (le, stage))",
+            "legendFormat": "P95 - {{ stage }}",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Duration (seconds)",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": 17}
+      },
+      {
+        "id": 5,
+        "title": "LaTeX Warnings & Errors",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(latex_warnings_total[5m])) by (warning_type)",
+            "legendFormat": "Warning: {{ warning_type }}",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(latex_errors_total[5m])) by (error_type)",
+            "legendFormat": "Error: {{ error_type }}",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Issues per second",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 9, "w": 12, "x": 12, "y": 17}
+      },
+      {
+        "id": 6,
+        "title": "Document Output Metrics",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "latex_pages_generated_total",
+            "legendFormat": "",
+            "refId": "A",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "latex_output_file_size_bytes",
+            "legendFormat": "",
+            "refId": "B", 
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "latex_bibtex_references_total",
+            "legendFormat": "",
+            "refId": "C",
+            "format": "table", 
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "merge",
+            "options": {}
+          },
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "__name__": true,
+                "instance": true,
+                "job": true
+              },
+              "renameByName": {
+                "Value #A": "Pages",
+                "Value #B": "File Size (bytes)",
+                "Value #C": "References",
+                "document": "Document"
+              }
+            }
+          }
+        ],
+        "fieldConfig": {
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "File Size (bytes)"},
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "bytes"
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 26}
+      },
+      {
+        "id": 7,
+        "title": "Error Budget Remaining",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "slo:latex_error_budget_remaining:24h",
+            "legendFormat": "Error Budget %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 20},
+                {"color": "green", "value": 80}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 34}
+      },
+      {
+        "id": 8,
+        "title": "Recent Build Status",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{service=\"latex-compiler\"}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "wrapLogMessage": true,
+          "enableLogDetails": true
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 34}
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "name": "LaTeX Builds",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(latex_build_success_total[1m]) > 0",
+          "titleFormat": "Build: {{document}}",
+          "textFormat": "{{document}} build completed"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "document",
+          "type": "query",
+          "query": "label_values(latex_build_success_total, document)",
+          "includeAll": true,
+          "allValue": ".*",
+          "refresh": 1
+        }
+      ]
+    }
+  }
+}

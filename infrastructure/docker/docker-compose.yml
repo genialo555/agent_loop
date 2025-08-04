@@ -284,6 +284,117 @@ services:
       - training-dev
     restart: unless-stopped
 
+  # === LATEX DOCUMENTATION SERVICES ===
+  # Service principal pour compilation LaTeX
+  latex-compiler:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+      target: latex-runtime
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    environment:
+      - LATEX_BUILD_MODE=production
+      - LATEX_MONITORING_ENABLED=true
+      - PROMETHEUS_PUSHGATEWAY_URL=http://pushgateway:9091
+      - CORRELATION_ID=${CORRELATION_ID:-$(date +%s)-docker}
+    volumes:
+      # Volume strategy for LaTeX documents and assets
+      - ../../docs/latex:/app/docs/latex:rw           # LaTeX source files
+      - latex_build:/app/docs/latex/build             # Build artifacts (PDFs, aux files)
+      - latex_output:/app/output                       # Final compiled documents
+      - latex_logs:/app/logs/latex                     # Compilation logs
+      # Development hot-reload (commented for production)
+      # - ../../docs/latex/sources:/app/docs/latex/sources:rw
+    ports:
+      - "9092:9092"  # Prometheus metrics endpoint
+    networks:
+      - agent-network
+    depends_on:
+      - pushgateway
+      - prometheus
+    profiles:
+      - latex
+      - docs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "make", "info"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+
+  # Service de développement LaTeX avec hot-reload
+  latex-dev:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+      target: latex-dev
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    environment:
+      - LATEX_BUILD_MODE=development
+      - LATEX_WATCH_MODE=true
+      - LATEX_MONITORING_ENABLED=false
+    volumes:
+      # Development mounts for hot reload
+      - ../../docs/latex:/app/docs/latex:rw
+      - ../../docs/R&D:/app/docs/R&D:ro              # Read-only access to research PDFs
+      - latex_build:/app/docs/latex/build
+      - latex_output:/app/output
+      - latex_logs:/app/logs/latex
+    ports:
+      - "8889:8889"  # Jupyter for LaTeX document editing
+      - "9093:9092"  # Dev metrics endpoint (different port)
+    networks:
+      - agent-network
+    # Interactive development - keep running with file watching
+    command: >
+      sh -c "
+        make setup &&
+        pip install jupyter jupyterlab &&
+        jupyter lab --ip=0.0.0.0 --port=8889 --no-browser --allow-root --notebook-dir=/app/docs/latex &
+        make watch
+      "
+    profiles:
+      - latex-dev
+      - docs-dev
+    restart: unless-stopped
+
+  # Service de conversion batch pour documents existants
+  latex-converter:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+      target: latex-runtime
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    environment:
+      - LATEX_BUILD_MODE=batch
+      - LATEX_MONITORING_ENABLED=true
+      - PROMETHEUS_PUSHGATEWAY_URL=http://pushgateway:9091
+    volumes:
+      - ../../docs:/app/docs:rw
+      - latex_build:/app/docs/latex/build
+      - latex_output:/app/output
+      - latex_logs:/app/logs/latex
+    networks:
+      - agent-network
+    depends_on:
+      - pushgateway
+    # Run conversion and exit
+    command: >
+      sh -c "
+        cd /app/docs/latex &&
+        make setup &&
+        make convert-pdfs &&
+        make create-bibliography &&
+        make all
+      "
+    profiles:
+      - latex-convert
+    restart: "no"
+
 # Volumes persistants
 volumes:
   # Production volumes

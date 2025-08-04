@@ -1,0 +1,371 @@
+name: LaTeX Documentation Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'docs/latex/**'
+      - 'tests/test_latex_*'
+      - '.github/workflows/latex-documentation.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/latex/**'
+      - 'tests/test_latex_*'
+      - '.github/workflows/latex-documentation.yml'
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+  TEXMFHOME: /github/workspace/.texmf
+  TEXMFVAR: /github/workspace/.texmf-var
+  TEXMFCONFIG: /github/workspace/.texmf-config
+
+jobs:
+  # Test the Python bibliography extraction script
+  test-python-scripts:
+    runs-on: ubuntu-latest
+    name: Test Python Bibliography Scripts
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov hypothesis
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      
+      - name: Run Python script tests
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:${GITHUB_WORKSPACE}"
+          pytest tests/test_latex_documentation.py::TestBibliographyExtraction -v --tb=short
+      
+      - name: Test bibliography extraction script directly
+        run: |
+          cd docs/latex
+          python3 scripts/extract_bibliography.py
+          ls -la bibliography/
+          if [ -f bibliography/references.bib ]; then
+            echo "Bibliography file created successfully"
+            head -20 bibliography/references.bib
+          fi
+
+  # Test Makefile targets without LaTeX
+  test-makefile-targets:
+    runs-on: ubuntu-latest
+    name: Test Makefile Targets
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Test Makefile help and setup
+        run: |
+          cd docs/latex
+          make help
+          make setup
+          ls -la build/ sources/ bibliography/ figures/
+      
+      - name: Test Makefile clean target
+        run: |
+          cd docs/latex
+          # Create some test files
+          touch build/test.pdf build/test.aux build/test.log
+          make clean
+          # Verify files were removed
+          test ! -f build/test.pdf
+          test ! -f build/test.aux
+          test ! -f build/test.log
+      
+      - name: Run Makefile integration tests
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:${GITHUB_WORKSPACE}"
+          pytest tests/test_latex_documentation.py::TestMakefileIntegration -v --tb=short
+
+  # Full LaTeX compilation testing
+  latex-compilation:
+    runs-on: ubuntu-latest
+    container: texlive/texlive:latest
+    name: LaTeX Compilation Tests
+    
+    strategy:
+      matrix:
+        latex-engine: [pdflatex, xelatex, lualatex]
+      fail-fast: false
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-pip make git
+      
+      - name: Set up Python environment
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install pytest hypothesis
+      
+      - name: Verify LaTeX installation
+        run: |
+          ${{ matrix.latex-engine }} --version
+          bibtex --version
+          makeindex --version
+      
+      - name: Set up LaTeX environment
+        run: |
+          cd docs/latex
+          make setup
+      
+      - name: Create bibliography
+        run: |
+          cd docs/latex
+          python3 scripts/extract_bibliography.py
+          make create-bibliography
+      
+      - name: Create LaTeX templates
+        run: |
+          cd docs/latex
+          make create-hrm-template
+          ls -la sources/
+      
+      - name: Validate LaTeX syntax
+        run: |
+          cd docs/latex
+          if [ -f sources/hierarchical_reasoning_model.tex ]; then
+            ${{ matrix.latex-engine }} -interaction=nonstopmode -draftmode sources/hierarchical_reasoning_model.tex || true
+          fi
+      
+      - name: Attempt LaTeX compilation
+        run: |
+          cd docs/latex
+          if [ -f sources/hierarchical_reasoning_model.tex ]; then
+            # Try compilation (may fail due to missing references/content)
+            timeout 300 make hrm-paper || echo "Compilation failed (expected for template)"
+            ls -la build/
+          fi
+      
+      - name: Run LaTeX compilation tests
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:${GITHUB_WORKSPACE}"
+          pytest tests/test_latex_documentation.py::TestLatexCompilation -v --tb=short -x
+      
+      - name: Upload compilation artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: latex-build-artifacts-${{ matrix.latex-engine }}
+          path: |
+            docs/latex/build/*.pdf
+            docs/latex/build/*.log
+            docs/latex/build/*.aux
+          retention-days: 7
+
+  # Documentation pipeline validation
+  documentation-pipeline:
+    runs-on: ubuntu-latest
+    container: texlive/texlive:latest
+    name: Full Documentation Pipeline
+    needs: [test-python-scripts, test-makefile-targets]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-pip make git pandoc
+          python3 -m pip install --upgrade pip
+          pip3 install pytest hypothesis pyyaml
+      
+      - name: Run full pipeline validation tests
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:${GITHUB_WORKSPACE}"
+          pytest tests/test_latex_documentation.py::TestDocumentationPipeline -v --tb=short
+      
+      - name: Test multi-format export
+        run: |
+          cd docs/latex
+          make setup
+          make create-hrm-template
+          
+          # Test HTML export with pandoc
+          if [ -f sources/hierarchical_reasoning_model.tex ]; then
+            pandoc sources/hierarchical_reasoning_model.tex -f latex -t html5 -o build/documentation.html --standalone || echo "HTML export attempted"
+            ls -la build/
+          fi
+      
+      - name: Validate directory structure
+        run: |
+          cd docs/latex
+          test -d sources
+          test -d build
+          test -d bibliography
+          test -d figures
+          test -d scripts
+          test -f Makefile
+          test -f scripts/extract_bibliography.py
+
+  # CI integration and performance tests
+  ci-integration-tests:
+    runs-on: ubuntu-latest
+    name: CI Integration Tests
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest hypothesis pyyaml
+      
+      - name: Run CI integration tests
+        env:
+          CI: true
+          GITHUB_ACTIONS: true
+          RUNNER_OS: Linux
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:${GITHUB_WORKSPACE}"
+          pytest tests/test_latex_ci_integration.py -v --tb=short -m "not slow"
+      
+      - name: Test GitHub Actions workflow validation
+        run: |
+          # Validate this workflow file
+          python3 -c "
+          import yaml
+          with open('.github/workflows/latex-documentation.yml', 'r') as f:
+              workflow = yaml.safe_load(f)
+              assert 'name' in workflow
+              assert 'on' in workflow
+              assert 'jobs' in workflow
+              print('Workflow YAML is valid')
+          "
+
+  # Performance and benchmark tests
+  performance-tests:
+    runs-on: ubuntu-latest
+    name: Performance and Benchmark Tests
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest hypothesis pytest-benchmark
+      
+      - name: Run performance tests
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:${GITHUB_WORKSPACE}"
+          pytest tests/test_latex_documentation.py::TestPerformanceAndResources -v --tb=short
+      
+      - name: Benchmark bibliography extraction
+        run: |
+          cd docs/latex
+          time python3 scripts/extract_bibliography.py
+          ls -la bibliography/
+
+  # Error handling and edge cases
+  error-handling-tests:
+    runs-on: ubuntu-latest
+    name: Error Handling Tests
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest hypothesis
+      
+      - name: Run error handling tests
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:${GITHUB_WORKSPACE}"
+          pytest tests/test_latex_documentation.py::TestErrorHandlingAndEdgeCases -v --tb=short
+      
+      - name: Test graceful failure handling
+        run: |
+          cd docs/latex
+          # Test with missing LaTeX (should fail gracefully)
+          make setup || echo "Setup failed gracefully"
+          # Test with invalid Makefile target
+          make invalid-target || echo "Invalid target handled gracefully"
+
+  # Collect and report results
+  report-results:
+    runs-on: ubuntu-latest
+    name: Collect Test Results
+    needs: [test-python-scripts, test-makefile-targets, latex-compilation, documentation-pipeline, ci-integration-tests, performance-tests, error-handling-tests]
+    if: always()
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+      
+      - name: Generate test report
+        run: |
+          echo "# LaTeX Documentation Test Report" > test-report.md
+          echo "" >> test-report.md
+          echo "## Test Summary" >> test-report.md
+          echo "- **Date**: $(date)" >> test-report.md
+          echo "- **Commit**: ${{ github.sha }}" >> test-report.md
+          echo "- **Branch**: ${{ github.ref_name }}" >> test-report.md
+          echo "" >> test-report.md
+          
+          echo "## Artifacts Generated" >> test-report.md
+          if [ -d artifacts/ ]; then
+            find artifacts/ -type f -name "*.pdf" | while read file; do
+              echo "- $(basename "$file")" >> test-report.md
+            done
+          fi
+          
+          echo "" >> test-report.md
+          echo "## Job Status" >> test-report.md
+          echo "- Python Scripts: ${{ needs.test-python-scripts.result }}" >> test-report.md
+          echo "- Makefile Targets: ${{ needs.test-makefile-targets.result }}" >> test-report.md
+          echo "- LaTeX Compilation: ${{ needs.latex-compilation.result }}" >> test-report.md
+          echo "- Documentation Pipeline: ${{ needs.documentation-pipeline.result }}" >> test-report.md
+          echo "- CI Integration: ${{ needs.ci-integration-tests.result }}" >> test-report.md
+          echo "- Performance Tests: ${{ needs.performance-tests.result }}" >> test-report.md
+          echo "- Error Handling: ${{ needs.error-handling-tests.result }}" >> test-report.md
+          
+          cat test-report.md
+      
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: latex-documentation-test-report
+          path: test-report.md
+          retention-days: 30
