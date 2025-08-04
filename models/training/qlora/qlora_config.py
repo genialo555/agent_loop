@@ -16,7 +16,7 @@ class QLoRAConfig:
     """Modern QLoRA configuration optimized for 2025 best practices."""
     
     # Model configuration
-    model_name: str = "google/gemma-3n-e4b"  # Using Gemma 3N-E4B as default
+    model_name: str = "/media/jerem/jeux&travail/ml_models/hub/models--google--gemma-3n-e4b/snapshots/af70430f84ea4d7ac191aaa2bd8e14d2a5e8f6ee"  # Using local Gemma 3N-E4B path
     cache_dir: Optional[str] = "/media/jerem/641C8D6C1C8D3A56/hf_cache"
     trust_remote_code: bool = False
     
@@ -163,33 +163,25 @@ class DatasetConfig:
 
 
 # Predefined configurations for common scenarios
-GEMMA_2B_CONFIG = QLoRAConfig(
-    model_name="google/gemma-2-2b",
+GEMMA_3N_E2B_CONFIG = QLoRAConfig(
+    model_name="google/gemma-3n-e2b",  # 2B effective params (5B total)
     max_steps=1000,
     per_device_train_batch_size=4,
     gradient_accumulation_steps=4,
 )
 
-GEMMA_9B_CONFIG = QLoRAConfig(
-    model_name="google/gemma-2-9b", 
+GEMMA_3N_E4B_LOCAL_CONFIG = QLoRAConfig(
+    model_name="/media/jerem/jeux&travail/ml_models/hub/models--google--gemma-3n-e4b/snapshots/af70430f84ea4d7ac191aaa2bd8e14d2a5e8f6ee",  # 4B effective params (8B total) - local path
     max_steps=800,
     per_device_train_batch_size=2,  # Reduced for larger model
     gradient_accumulation_steps=8,   # Maintain effective batch size
     lora_r=16,                      # Reduce rank for memory
 )
 
-GEMMA_3_2B_CONFIG = QLoRAConfig(
-    model_name="google/gemma-3-2b",  # When available
-    max_steps=1200,
-    per_device_train_batch_size=4,
-    gradient_accumulation_steps=4,
-    target_modules="all-linear",     # Gemma 3 benefits from all-linear
-)
-
 # Gemma 3N E4B configuration for Agent Loop
-# Note: Using Gemma-2-2b as fallback since Gemma-3N is not yet available
+# Using local path as the model is experimental and not on HuggingFace Hub
 GEMMA_3N_CONFIG = QLoRAConfig(
-    model_name="google/gemma-3n-e4b",
+    model_name="/media/jerem/jeux&travail/ml_models/hub/models--google--gemma-3n-e4b/snapshots/af70430f84ea4d7ac191aaa2bd8e14d2a5e8f6ee",
     max_steps=1000,
     per_device_train_batch_size=2,  # Modèle optimisé
     gradient_accumulation_steps=8,   # Effective batch size = 16

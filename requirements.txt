@@ -45,6 +45,7 @@ xformers>=0.0.25
 psutil>=5.9.0,<6.0.0  # fastapi-utils constraint
 nvidia-ml-py>=12.555.0
 pynvml>=11.5.0
+gputil>=1.4.0  # GPU monitoring for training progress
 
 # Terminal UI for monitoring dashboard
 rich>=13.7.0

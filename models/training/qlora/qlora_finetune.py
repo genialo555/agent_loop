@@ -26,12 +26,14 @@ from transformers import (
 from peft import get_peft_model, prepare_model_for_kbit_training
 from trl import SFTTrainer, SFTConfig
 
+# Import our beautiful monitoring module
+from agent_loop.monitoring import create_training_monitor
+
 from .qlora_config import (
     QLoRAConfig, 
     DatasetConfig,
-    GEMMA_2B_CONFIG,
-    GEMMA_9B_CONFIG,
-    GEMMA_3_2B_CONFIG,
+    GEMMA_3N_E2B_CONFIG,
+    GEMMA_3N_E4B_LOCAL_CONFIG,
     GEMMA_3N_CONFIG
 )
 
@@ -60,7 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
     
     # Model configuration
     parser.add_argument("--model-config", type=str, default="gemma-3n",
-                       choices=["gemma-2b", "gemma-9b", "gemma-3-2b", "gemma-3n", "custom"],
+                       choices=["gemma-3n-e2b", "gemma-3n-e4b", "gemma-3n", "custom"],
                        help="Predefined model configuration")
     parser.add_argument("--model-name", type=str, help="Custom model name (if config=custom)")
     
@@ -96,6 +98,11 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Dry run without actual training")
     parser.add_argument("--verbose", action="store_true",
                        help="Enable verbose logging")
+    parser.add_argument("--no-rich", action="store_true",
+                       help="Disable rich progress display")
+    parser.add_argument("--monitor-theme", type=str, default="default",
+                       choices=["default", "minimal", "cyberpunk"],
+                       help="Progress monitor theme")
     
     return parser
 
@@ -103,9 +110,8 @@ def build_parser() -> argparse.ArgumentParser:
 def get_model_config(config_name: str, custom_model: Optional[str] = None) -> QLoRAConfig:
     """Get predefined model configuration."""
     configs = {
-        "gemma-2b": GEMMA_2B_CONFIG,
-        "gemma-9b": GEMMA_9B_CONFIG, 
-        "gemma-3-2b": GEMMA_3_2B_CONFIG,
+        "gemma-3n-e2b": GEMMA_3N_E2B_CONFIG,
+        "gemma-3n-e4b": GEMMA_3N_E4B_LOCAL_CONFIG, 
         "gemma-3n": GEMMA_3N_CONFIG,
     }
     
@@ -256,6 +262,7 @@ def train_model(
     config: QLoRAConfig,
     output_dir: str,
     resume_from_checkpoint: Optional[str] = None,
+    args: Optional[argparse.Namespace] = None,
 ) -> Dict[str, Any]:
     """Train the model using SFTTrainer."""
     logger.info("Starting QLoRA fine-tuning...")
@@ -402,12 +409,23 @@ def train_model(
         """Format a single example for SFTTrainer - must return a string."""
         return example["text"] if example["text"] else "Empty content"
     
+    # Initialize progress monitoring
+    progress_monitor = create_training_monitor(
+        total_steps=config.max_steps,
+        model_name=config.model_name.split('/')[-1],
+        rich_display=not getattr(args, 'no_rich', False),
+        show_gpu=True,
+        show_cpu=True,
+        theme=getattr(args, 'monitor_theme', 'cyberpunk' if '3n' in config.model_name else 'default')
+    )
+    
     trainer = SFTTrainer(
         model=model,
         args=sft_config,
         train_dataset=dataset,
         formatting_func=formatting_func_for_sft,
         processing_class=tokenizer,
+        callbacks=[progress_monitor],
     )
     
     # Train the model
@@ -532,6 +550,7 @@ def main() -> None:
             config=config,
             output_dir=args.output_dir,
             resume_from_checkpoint=args.resume,
+            args=args,
         )
         
         logger.info("Training completed successfully!")

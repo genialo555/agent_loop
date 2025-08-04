@@ -18,6 +18,9 @@ from trl import SFTTrainer
 from transformers import TrainingArguments
 from unsloth import is_bfloat16_supported
 
+# Import monitoring module
+from agent_loop.monitoring import create_training_monitor
+
 # Setup logging
 import logging
 logging.basicConfig(
@@ -70,6 +73,11 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Random seed")
     parser.add_argument("--use-wandb", action="store_true",
                        help="Use Weights & Biases logging")
+    parser.add_argument("--no-rich", action="store_true",
+                       help="Disable rich progress display")
+    parser.add_argument("--monitor-theme", type=str, default="cyberpunk",
+                       choices=["default", "minimal", "cyberpunk"],
+                       help="Progress monitor theme")
     
     return parser
 
@@ -237,6 +245,16 @@ def train_model(
         """Format a single example for training."""
         return example["text"] if example["text"] else ""
     
+    # Initialize progress monitoring
+    progress_monitor = create_training_monitor(
+        total_steps=args.max_steps if args.max_steps else (args.num_epochs * len(dataset) // (args.batch_size * args.gradient_accumulation_steps)),
+        model_name="Gemma-3N-E4B Unsloth",
+        rich_display=not args.no_rich,
+        show_gpu=True,
+        show_cpu=True,
+        theme=args.monitor_theme
+    )
+    
     # Setup trainer
     trainer = SFTTrainer(
         model=model,
@@ -248,6 +266,7 @@ def train_model(
         packing=False,  # Can enable for better GPU utilization
         dataset_num_proc=16,  # Max parallel processing!
         dataset_batch_size=2000,  # Bigger batches
+        callbacks=[progress_monitor],
     )
     
     # Train

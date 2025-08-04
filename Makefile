@@ -232,31 +232,31 @@ train-clean: ## Clean training data and temporary files
 	@echo "$(GREEN)[SUCCESS]$(NC) Training cleanup completed!"
 
 # QLoRA Configuration Commands
-train-gemma-2b: ## Train Gemma 2B model with optimized QLoRA config
-	@echo "$(BLUE)[QLORA]$(NC) Training Gemma 2B with QLoRA..."
+train-gemma-3n-e2b: ## Train Gemma 3N E2B model (2B effective params) with optimized QLoRA config
+	@echo "$(BLUE)[QLORA]$(NC) Training Gemma 3N E2B with QLoRA..."
 	$(COMPOSE) -f docker-compose.training.yml run --rm qlora-training \
 		python training/qlora_finetune.py \
-		--model-config gemma-2b \
+		--model-config gemma-3n-e2b \
 		--data /app/datasets/processed/train_splits \
-		--output-dir /app/outputs/gemma-2b-qlora \
+		--output-dir /app/outputs/gemma-3n-e2b-qlora \
 		--max-steps 1000 \
 		--batch-size 4 \
 		--learning-rate 2e-4 \
 		--wandb-project agent-loop-qlora
 
-train-gemma-9b: ## Train Gemma 9B model with memory-optimized config  
-	@echo "$(BLUE)[QLORA]$(NC) Training Gemma 9B with optimized QLoRA..."
+train-gemma-3n-e4b: ## Train Gemma 3N E4B model (4B effective params) with memory-optimized config  
+	@echo "$(BLUE)[QLORA]$(NC) Training Gemma 3N E4B with optimized QLoRA..."
 	$(COMPOSE) -f docker-compose.training.yml run --rm qlora-training \
 		python training/qlora_finetune.py \
-		--model-config gemma-9b \
+		--model-config gemma-3n-e4b \
 		--data /app/datasets/processed/train_splits \
-		--output-dir /app/outputs/gemma-9b-qlora \
+		--output-dir /app/outputs/gemma-3n-e4b-qlora \
 		--max-steps 800 \
 		--batch-size 2
 
 train-custom: ## Train custom model (specify MODEL and DATA)
 	@echo "$(BLUE)[QLORA]$(NC) Training custom model..."
-	@if [ -z "$(MODEL)" ]; then echo "$(RED)[ERROR]$(NC) MODEL variable required. Usage: make train-custom MODEL=google/gemma-2-2b"; exit 1; fi
+	@if [ -z "$(MODEL)" ]; then echo "$(RED)[ERROR]$(NC) MODEL variable required. Usage: make train-custom MODEL=google/gemma-3n-e2b"; exit 1; fi
 	@if [ -z "$(DATA)" ]; then echo "$(RED)[ERROR]$(NC) DATA variable required. Usage: make train-custom DATA=/path/to/data"; exit 1; fi
 	$(COMPOSE) -f docker-compose.training.yml run --rm qlora-training \
 		python training/qlora_finetune.py \
