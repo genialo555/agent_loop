@@ -1,5 +1,4 @@
-<div align="center">
-  <img src="docs/images/spider-scraper-batman.svg" alt="CFP Scraper Logo" width="400" height="200">
+
   
   # 🤖 Agent Loop - Autonomous LLM Training & Inference Platform
 
